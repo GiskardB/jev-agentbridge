@@ -1,0 +1,23 @@
+# Poetry / uv
+.purge
+.venv
+venv
+.env
+
+# PyCache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Model / cache
+*.bin
+*.safetensors
+.hf_cache/
+
+# secrets
+*.env

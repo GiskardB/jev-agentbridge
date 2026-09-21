@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=70.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jev-cpu-agentbridge"
+version = "0.1.0"
+description = "JEV-CPU-AgentBridge — Local decision gateway for AI agents using CPU-first inference"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.30.0",
+    "pydantic>=2.8.0",
+    "transformers>=4.45.0",
+    "torch>=2.5.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2.0",
+    "ruff>=0.8.0",
+    "mypy>=1.10.0",
+    "pytest-xdist>=3.0.0",
+]
+
+[project.scripts]
+jev-decide = "jev_cpu_agentbridge.main:main"
+
+[tool.ruff]
+line-length = 88
+target-version = "python3.11"
+select = ["E", "F", "I"]
+
+[tool.mypy.default_args]
+--python-version = "3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "live_model: Mark test as requiring the model to be downloaded",
+    "conformance: Mark conformance test against SemIf/JEV-CPU reference",
+]
+
+description = """
+JEV-CPU-AgentBridge — a local decision gateway for AI agents.
+See README for more information.
+"""

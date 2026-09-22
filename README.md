@@ -11,7 +11,7 @@
   <img alt="version" src="https://img.shields.io/badge/version-0.2.0-informational">
   <img alt="python" src="https://img.shields.io/badge/python-3.11%2B-blue">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-green">
-  <a href="../../actions/workflows/ci.yml"><img alt="CI" src="https://192.168.1.118:3443/gbrescia/jev-cpu-agentbridge/badges/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/GiskardB/jev-agentbridge/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/GiskardB/jev-agentbridge/actions/workflows/ci.yml/badge.svg"></a>
 </p>
 
 ---
@@ -286,8 +286,14 @@ it, forward the input to `POST /v1/decide` and return the JSON result as the too
 
 - Versioning follows [SemVer](https://semver.org/); see [CHANGELOG.md](CHANGELOG.md) for the release history.
 - `.github/workflows/ci.yml` runs lint + tests on every push/PR.
-- `.github/workflows/release.yml` builds and publishes the Docker image to this instance's container registry
-  whenever a `vX.Y.Z` tag is pushed.
+- `.github/workflows/release.yml` builds and publishes the Docker image whenever a `vX.Y.Z` tag is
+  pushed — to [GitHub Container Registry](https://github.com/GiskardB/jev-agentbridge/pkgs/container/jev-agentbridge)
+  on github.com, or to the local instance's registry when run on a self-hosted Forgejo/Gitea.
+
+```bash
+docker pull ghcr.io/giskardb/jev-agentbridge:latest
+docker run -p 8000:8000 ghcr.io/giskardb/jev-agentbridge:latest
+```
 
 ## Documentation
 

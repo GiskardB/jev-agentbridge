@@ -1,0 +1,12 @@
+{
+  "name": "jev-cpu-agentbridge-opencode-plugin",
+  "private": true,
+  "type": "module",
+  "description": "OpenCode plugin: jev_decide tool backed by JEV-CPU-AgentBridge",
+  "scripts": {
+    "test": "node test_plugin.mjs"
+  },
+  "dependencies": {
+    "@opencode-ai/plugin": "^1.18.0"
+  }
+}

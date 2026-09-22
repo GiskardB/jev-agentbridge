@@ -14,7 +14,7 @@ from .runtime.settings import Settings
 if TYPE_CHECKING:
     pass
 
-app = FastAPI(title="JEV-CPU-AgentBridge", version="0.2.0")
+app = FastAPI(title="JEV-CPU-AgentBridge", version="0.2.1")
 
 _settings = Settings.from_env()
 

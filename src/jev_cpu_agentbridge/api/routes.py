@@ -59,7 +59,7 @@ def create_router(
             revision=revision,
             supported_modes=["direct", "shared"],
             max_options=16,
-            version="0.2.0",
+            version="0.2.1",
         )
 
     @router.post("/v1/decide", response_model=DecideResponse)

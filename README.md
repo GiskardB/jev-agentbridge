@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img alt="version" src="https://img.shields.io/badge/version-0.2.0-informational">
+  <img alt="version" src="https://img.shields.io/badge/version-0.2.1-informational">
   <img alt="python" src="https://img.shields.io/badge/python-3.11%2B-blue">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-green">
   <a href="https://github.com/GiskardB/jev-agentbridge/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/GiskardB/jev-agentbridge/actions/workflows/ci.yml/badge.svg"></a>
@@ -184,23 +184,35 @@ No SDK needed either — it's one HTTP call, so any language works.
 
 ## Integrating with your agent
 
-### OpenCode (built-in, tested)
+### OpenCode (built-in, verified against a real OpenCode agent)
 
-A plugin + skill are included in [integrations/opencode/](integrations/opencode/) and exercised end-to-end in
-[examples/opencode-docker/](examples/opencode-docker/).
+A plugin + skill are included in [integrations/opencode/](integrations/opencode/).
 
-1. Point the plugin at your running Bridge instance:
+1. Install the plugin's own dependency:
+   ```bash
+   cd integrations/opencode && npm install
+   ```
+2. Point it at your running Bridge instance:
    ```bash
    export JEV_CPU_AGENTBRIDGE_URL=http://localhost:8000
    ```
-2. Register it in `opencode.json`:
+3. Register it in `opencode.json`:
    ```json
    { "plugin": ["./integrations/opencode/plugin/jev-cpu-agentbridge.mjs"] }
    ```
-3. The agent gets a `jev_decide` tool it can call directly — see
+4. The agent gets a `jev_decide` tool it can call directly — see
    [integrations/opencode/README.md](integrations/opencode/README.md).
 
-Try the full working example (JEV vs. an OpenRouter model, side by side):
+This was verified by actually running the real `opencode` CLI (the `opencode-ai` npm package) against a
+live OpenRouter model and watching it call `jev_decide` — not just by reading the code. That exercise
+found and fixed two real bugs (wrong tool-registration shape, a `z.record()` schema that crashes
+OpenCode 1.18.x's serializer); details in [integrations/opencode/README.md](integrations/opencode/README.md)
+and [CHANGELOG.md](CHANGELOG.md). `integrations/opencode/npm test` re-checks the registration shape
+without needing a full OpenCode session.
+
+Separately, [examples/opencode-docker/](examples/opencode-docker/) benchmarks JEV against calling
+OpenRouter directly (via the Python SDK, not the plugin) — useful for the latency/cost comparison, not
+a test of the plugin itself:
 
 ```bash
 docker compose -f examples/opencode-docker/docker-compose.yml up --build

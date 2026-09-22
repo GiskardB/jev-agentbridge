@@ -6,48 +6,63 @@
 //
 // OpenCode loads this as a server plugin. Add to your opencode.json:
 //   { "plugin": ["./integrations/opencode/plugin/jev-cpu-agentbridge.mjs"] }
+//
+// Requires @opencode-ai/plugin to be resolvable from this file (npm install
+// in integrations/opencode/ — see package.json there).
+
+import { tool } from "@opencode-ai/plugin";
 
 export default async ({ client } = {}) => {
   const log = (level, message) => {
     try {
-      client && client.app && client.app.log({ body: { service: 'jev-cpu-agentbridge', level, message } });
+      client && client.app && client.app.log({ body: { service: "jev-cpu-agentbridge", level, message } });
     } catch (e) {}
   };
 
-  let baseUrl = 'http://localhost:8000';
+  const baseUrl = process.env.JEV_CPU_AGENTBRIDGE_URL || "http://localhost:8000";
 
   return {
-    config: async (config) => {
-      config.skills = config.skills || {};
-      config.skills.paths = config.skills.paths || [];
-      // Allow users to configure the bridge URL via environment variable or config.
-      if (process.env.JEV_CPU_AGENTBRIDGE_URL) {
-        baseUrl = process.env.JEV_CPU_AGENTBRIDGE_URL;
-        log('info', `JEV-CPU-AgentBridge URL: ${baseUrl}`);
-      }
-    },
-
-    // Register the jev_decide tool.
-    'tool.jev_decide': {
-      description: 'Evaluate a discrete decision using the local JEV-CPU-AgentBridge.',
-      // OpenCode tools accept a JSON input and return a JSON result.
-      async call(input) {
-        try {
+    tool: {
+      jev_decide: tool({
+        description:
+          "Evaluate a small discrete decision (2-16 options) using the local, CPU-only " +
+          "JEV-CPU-AgentBridge instead of the main model. Use this for routine binary/few-way " +
+          "judgment calls (retry vs abort, escalate vs log, accept vs reject), not open-ended reasoning.",
+        args: {
+          // z.record() crashes OpenCode 1.18.x's tool-schema serializer (ToolRegistry.state),
+          // so `state` (string | dict | list per the Bridge API) is typed as z.any() here.
+          state: tool.schema.any().describe("The evidence/state to evaluate the decision against."),
+          question: tool.schema.string().describe("The decision criterion, e.g. 'What should happen next?'"),
+          options: tool.schema
+            .array(
+              tool.schema.object({
+                id: tool.schema.string(),
+                description: tool.schema.string(),
+              }),
+            )
+            .min(2)
+            .max(16)
+            .describe("2-16 candidate options to choose from."),
+        },
+        async execute(args) {
           const response = await fetch(`${baseUrl}/v1/decide`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(input),
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(args),
           });
           const body = await response.json();
           if (!response.ok) {
-            return { error: body.error || { message: `Request failed: ${response.status}` } };
+            const message = body.error?.message || `Request failed: ${response.status}`;
+            log("error", `jev_decide failed: ${message}`);
+            throw new Error(message);
           }
-          return body;
-        } catch (err) {
-          log('error', `jev_decide failed: ${err.message}`);
-          return { error: { code: 'ENGINE_ERROR', message: err.message } };
-        }
-      },
+          return {
+            title: `${body.decision.id} (p=${body.selected_probability.toFixed(2)})`,
+            output: JSON.stringify(body, null, 2),
+            metadata: body.metadata,
+          };
+        },
+      }),
     },
   };
 };

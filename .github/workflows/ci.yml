@@ -36,3 +36,20 @@ jobs:
         with:
           context: .
           push: false
+
+  opencode-plugin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install
+        working-directory: integrations/opencode
+        run: npm ci
+
+      - name: Test
+        working-directory: integrations/opencode
+        run: npm test

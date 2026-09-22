@@ -4,23 +4,35 @@ This integration provides a callable tool `jev_decide` that maps the OpenCode ag
 
 ## Installation
 
-Add the plugin to your `opencode.json`:
+1. Install the plugin's own dependency (the real `@opencode-ai/plugin` SDK the tool is built with):
 
-```json
-{
-  "plugin": ["./integrations/opencode/plugin/jev-cpu-agentbridge.mjs"]
-}
-```
+   ```bash
+   cd integrations/opencode && npm install
+   ```
 
-Or set the URL via environment variable:
+2. Add the plugin to your `opencode.json`:
+
+   ```json
+   {
+     "plugin": ["./integrations/opencode/plugin/jev-cpu-agentbridge.mjs"]
+   }
+   ```
+
+3. Point it at your running Bridge instance:
+
+   ```bash
+   export JEV_CPU_AGENTBRIDGE_URL=http://localhost:8000
+   ```
+
+Verify the tool actually registers without starting a full OpenCode session:
 
 ```bash
-export JEV_CPU_AGENTBRIDGE_URL=http://localhost:8000
+cd integrations/opencode && npm test
 ```
 
 ## Usage
 
-Once installed, the agent can call the `jev_decide` tool with the canonical decision request:
+Once installed, the agent calls the `jev_decide` tool with the canonical decision request:
 
 ```json
 {
@@ -34,17 +46,26 @@ Once installed, the agent can call the `jev_decide` tool with the canonical deci
 }
 ```
 
-The tool returns:
+The tool result's `output` field is the Bridge's JSON response as a string:
 
 ```json
 {
   "decision": { "id": "retry", "description": "Retry the deployment" },
-  "probabilities": { "retry": 0.81, "abort": 0.12, "escalate": 0.07 },
+  "probabilities": { "A": 0.81, "B": 0.12, "C": 0.07 },
   "selected_probability": 0.81,
   "accepted": true,
-  "metadata": { ... }
+  "metadata": { "engine": "semif", "model": "Qwen/Qwen3-0.6B", "latency_ms": 210.4 }
 }
 ```
+
+Verified end-to-end with the real `opencode` CLI (`opencode-ai` on npm) and a live OpenRouter model:
+the agent called `jev_decide`, got back `retry` at p=0.77, and reported it correctly. Two real bugs
+were found and fixed doing that verification — see [CHANGELOG.md](../../CHANGELOG.md):
+
+- The tool was registered under the wrong shape (`{'tool.jev_decide': ...}` instead of
+  `{tool: {jev_decide: ...}}`) — OpenCode's loader ignored it silently, no error, no log line.
+- The `state` argument's schema used `z.record()`, which crashes OpenCode 1.18.x's internal
+  tool-schema serializer (`ToolRegistry.state`); it's typed as `z.any()` instead.
 
 ## SKILL.md
 

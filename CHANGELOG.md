@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.2.1
+
+- Fix: the OpenCode plugin's `jev_decide` tool was never actually registered — it exported
+  `{'tool.jev_decide': {...}}` instead of the real API's `{tool: {jev_decide: {...}}}`, so OpenCode's
+  loader silently ignored it (no error). Found by running the real `opencode` CLI against the plugin
+  instead of trusting the code; the "tested" claim in earlier docs was inaccurate.
+- Fix: the plugin's `state` argument used a `z.union([..., z.record(z.any()), ...])` schema, which
+  crashes OpenCode 1.18.x's internal tool-schema serializer (`ToolRegistry.state`) with
+  `TypeError: undefined is not an object (evaluating 'r._zod')`; `state` is now `z.any()`.
+- Add: `integrations/opencode/package.json` — the plugin now has a real, declared dependency
+  (`@opencode-ai/plugin`) instead of silently assuming it's available; `npm install` is a required setup step
+- Add: `integrations/opencode/test_plugin.mjs` (`npm test`) — structural smoke test that would have
+  caught the registration-shape bug without needing a live OpenCode session; wired into CI
+- Fix: Dockerfile/compose `HEALTHCHECK --start-period` was too short (5-30s) for a cold model load
+  (~35-40s observed), causing a false "unhealthy" status right after `docker compose up`
+
 ## 0.2.0
 
 - Add: pluggable decision engines selected via `JEV_ENGINE` (`semif` default, `laya` optional) — the

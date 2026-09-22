@@ -4,6 +4,9 @@
 venv
 .env
 
+# Node
+node_modules/
+
 # PyCache
 __pycache__/
 *.pyc

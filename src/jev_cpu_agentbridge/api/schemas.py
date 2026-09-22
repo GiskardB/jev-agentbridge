@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from pydantic import BaseModel, Field
 
 
@@ -11,10 +9,10 @@ class OptionIn(BaseModel):
     id: str
     description: str
 
-    model_config = {"populate_by_name": True}
-
 
 class DecideRequest(BaseModel):
+    """Single decision request."""
+
     state: str | dict | list
     question: str = Field(alias="criterion")
     options: list[OptionIn] = Field(min_length=2, max_length=16)
@@ -22,9 +20,20 @@ class DecideRequest(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class BatchDecideItem(BaseModel):
+    """A single decision within a batch — shares the top-level state."""
+
+    question: str = Field(alias="criterion")
+    options: list[OptionIn] = Field(min_length=2, max_length=16)
+
+    model_config = {"populate_by_name": True}
+
+
 class BatchDecideRequest(BaseModel):
+    """Batch decision request sharing one state."""
+
     state: str | dict | list
-    decisions: list[DecideRequest]
+    decisions: list[BatchDecideItem] = Field(min_length=1)
 
 
 class DecideResponse(BaseModel):
@@ -32,7 +41,7 @@ class DecideResponse(BaseModel):
     probabilities: dict[str, float]
     selected_probability: float
     accepted: bool
-    metadata: dict[str, Any]
+    metadata: dict
 
 
 class BatchDecideResponse(BaseModel):

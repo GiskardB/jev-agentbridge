@@ -1,7 +1,7 @@
 # Python SDK
 
 ```python
-from jev_cpu_agentbridge import AgentBridgeClient
+from jev_agent_bridge import AgentBridgeClient
 
 client = AgentBridgeClient("http://localhost:8000")
 

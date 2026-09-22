@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
-from typing import Callable, Any
+from typing import Callable
 
-from ..engine.base import DecisionResult, DecisionEngine
+from fastapi import APIRouter, HTTPException
+
+from ..engine.base import DecisionEngine, DecisionResult
 from ..runtime.settings import Settings
 from .errors import BridgeError, ErrorCode
 from .schemas import (
@@ -39,20 +40,26 @@ def create_router(
                 raise HTTPException(status_code=503, detail={"status": "not ready"})
         except (RuntimeError, LookupError):
             raise HTTPException(status_code=503, detail={"status": "not ready"})
+        model = settings.laya_model_name if settings.engine == "laya" else settings.model_name
         return ReadyResponse(
             status="ready",
-            model=settings.model_name,
+            model=model,
         )
 
     @router.get("/v1/info", response_model=InfoResponse)
     async def info() -> InfoResponse:
+        model, revision = (
+            (settings.laya_model_name, settings.laya_subfolder or "main")
+            if settings.engine == "laya"
+            else (settings.model_name, settings.model_revision)
+        )
         return InfoResponse(
-            engine="semif",
-            model=settings.model_name,
-            revision=settings.model_revision,
+            engine=settings.engine,
+            model=model,
+            revision=revision,
             supported_modes=["direct", "shared"],
             max_options=16,
-            version="0.1.0",
+            version="0.2.0",
         )
 
     @router.post("/v1/decide", response_model=DecideResponse)
@@ -111,7 +118,7 @@ def create_router(
 def _to_domain_options(options: list[dict]) -> list:
     from ..engine.base import Option
 
-    return [Option(id=o["id"], description=o["description"]) for o in options]
+    return [Option(id=o.id, description=o.description) for o in options]
 
 
 def _to_response(result: DecisionResult) -> dict:

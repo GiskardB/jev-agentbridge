@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
-import torch
-
 import pytest
+import torch
 
 from jev_cpu_agentbridge.engine.base import Option
 from jev_cpu_agentbridge.engine.prompt import build_decision_prompt, prompt_sha256
 from jev_cpu_agentbridge.engine.semif import SemIfEngine
-from jev_cpu_agentbridge.engine.tokenizer_slots import TokenSlotValidator, TokenSlotError
+from jev_cpu_agentbridge.engine.tokenizer_slots import (
+    TokenSlotError,
+    TokenSlotValidator,
+)
 from tests.conftest import FakeModel, FakeTokenizer, HighModel, make_engine
 
 
@@ -69,8 +71,17 @@ def test_batch_shared_mode() -> None:
     results = engine.decide_batch(
         state="test",
         decisions=[
-            ("which?", [Option(id="retry", description="Retry"), Option(id="abort", description="Abort")]),
-            ("other?", [Option(id="retry", description="Retry"), Option(id="escalate", description="Escalate")]),
+            (
+                "which?",
+                [Option(id="retry", description="Retry"), Option(id="abort", description="Abort")],
+            ),
+            (
+                "other?",
+                [
+                    Option(id="retry", description="Retry"),
+                    Option(id="escalate", description="Escalate"),
+                ],
+            ),
         ],
     )
     assert len(results) == 2

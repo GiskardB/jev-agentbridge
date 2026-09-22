@@ -43,4 +43,5 @@ Model readiness. Returns `{"status": "ready", "model": "..."}` after initializat
 
 ## `GET /v1/info`
 
-Engine information.
+Reflects the active engine (`JEV_ENGINE`) and its model — see
+[docs/architecture.md](architecture.md#swapping-engines).

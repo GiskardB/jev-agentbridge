@@ -36,7 +36,7 @@ class ModelLoader:
             self._settings.model_name,
             revision=self._settings.model_revision,
             torch_dtype=torch.float32,
-            device_map=self._settings.model_device,
         )
+        model.to(self._settings.model_device)
         model.eval()
         return LoadedModel(model=model, tokenizer=tokenizer)

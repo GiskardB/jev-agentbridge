@@ -2,60 +2,43 @@
 
 from __future__ import annotations
 
-from contextvars import ContextVar
 from typing import TYPE_CHECKING
 
 from fastapi import FastAPI
 
 from .api.errors import BridgeError
 from .api.routes import create_router
-from .runtime.settings import Settings
-from .engine.semif import SemIfEngine
 from .engine.base import DecisionEngine
+from .runtime.settings import Settings
 
 if TYPE_CHECKING:
     pass
 
-app = FastAPI(title="JEV-CPU-AgentBridge", version="0.1.0")
+app = FastAPI(title="JEV-CPU-AgentBridge", version="0.2.0")
 
 _settings = Settings.from_env()
-
-_engine_ctx: ContextVar[DecisionEngine | None] = ContextVar("engine")
-
-
-def get_engine() -> DecisionEngine:
-    """Get the decision engine from context."""
-    try:
-        engine = _engine_ctx.get()
-    except LookupError:
-        raise RuntimeError("Engine not initialized. Call startup event first.")
-    if engine is None:
-        raise RuntimeError("Engine not initialized. Call startup event first.")
-    return engine
 
 
 @app.on_event("startup")
 async def startup() -> None:
-    """Load the model and initialize the engine."""
-    from .runtime.model_loader import ModelLoader
+    """Load the configured decision engine (JEV_ENGINE)."""
+    from .engine.registry import create_engine
 
-    loaded = ModelLoader(_settings).load()
-    engine = SemIfEngine(
-        model=loaded.model,
-        tokenizer=loaded.tokenizer,
-        model_name=_settings.model_name,
-        model_revision=_settings.model_revision,
-        max_input_tokens=_settings.max_input_tokens,
-        min_selected_probability=_settings.min_selected_probability,
-    )
-    engine._ready = True  # noqa: SLF001
-    _engine_ctx.set(engine)
+    app.state.engine = create_engine(_settings)
 
 
 @app.on_event("shutdown")
 async def shutdown() -> None:
     """Clean up resources on shutdown."""
     pass
+
+
+def get_engine() -> DecisionEngine:
+    """Get the decision engine from app state."""
+    engine = getattr(app.state, "engine", None)
+    if engine is None:
+        raise RuntimeError("Engine not initialized. Call startup event first.")
+    return engine
 
 
 app.include_router(create_router(get_engine, _settings))

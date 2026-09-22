@@ -4,8 +4,8 @@ WORKDIR /app
 
 RUN pip install --no-cache-dir uv
 
-COPY pyproject.toml ./
-RUN uv sync --frozen --no-dev || true
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev
 
 COPY src/ ./src/
 COPY benchmarks/ ./benchmarks/

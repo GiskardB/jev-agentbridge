@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
 from fastapi.testclient import TestClient
 
 from jev_cpu_agentbridge.main import app
@@ -62,7 +61,11 @@ def test_batch_invalid_options() -> None:
         json={
             "state": "test",
             "decisions": [
-                {"state": "test", "question": "which?", "options": [{"id": "a", "description": "A"}]}
+                {
+                    "state": "test",
+                    "question": "which?",
+                    "options": [{"id": "a", "description": "A"}],
+                }
             ],
         },
     )

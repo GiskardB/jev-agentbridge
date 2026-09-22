@@ -1,31 +1,115 @@
-# JEV-CPU-AgentBridge
+<p align="center">
+  <img src="docs/assets/banner.png" alt="JEV-CPU-AgentBridge" width="600">
+</p>
 
-JEV-CPU-AgentBridge is a local decision gateway for AI agents. It evaluates small
-discrete choices using a CPU-hosted decision model and returns a structured
-result, allowing an agent to reserve its primary generative model for tasks
-that actually require generation or open-ended reasoning.
+<p align="center">
+  <strong>Stop paying a full LLM call for a yes/no.</strong><br>
+  A local, CPU-only decision engine that answers your agent's small discrete choices in milliseconds — for free.
+</p>
 
-## Features
+<p align="center">
+  <img alt="version" src="https://img.shields.io/badge/version-0.2.0-informational">
+  <img alt="python" src="https://img.shields.io/badge/python-3.11%2B-blue">
+  <img alt="license" src="https://img.shields.io/badge/license-MIT-green">
+  <a href="../../actions/workflows/ci.yml"><img alt="CI" src="https://192.168.1.118:3443/gbrescia/jev-cpu-agentbridge/badges/workflows/ci.yml/badge.svg"></a>
+</p>
 
-- **Local-first**: runs entirely on CPU, no external API calls
-- **CPU-first**: uses Qwen/Qwen3-0.6B with PyTorch float32
-- **Provider-agnostic**: no dependency on OpenAI, Anthropic, or any other LLM provider
-- **Agent-oriented**: structured decision requests and responses
-- **Deterministic/reproducible**: pinned model revisions and prompt versioning
+---
+
+## What is this
+
+Every AI agent constantly makes small binary or few-way calls: *retry or abort? escalate or log? accept or reject?*
+Routing those through a full generative LLM (OpenAI, Anthropic, OpenRouter...) burns tokens, money, and 1-15
+seconds of latency for a decision that's really just "pick A, B, or C".
+
+**JEV-CPU-AgentBridge** runs a small model (Qwen3-0.6B, ~600M params) locally on **CPU only** and scores just the
+option letters via a single forward pass — no text generation, no GPU, no external API call. Your main agent
+model stays free to do the actual reasoning; this handles the routine judgment calls.
+
+Measured on this repo's own [OpenCode example](examples/opencode-docker/): the same decision took **~2s locally
+for $0**, vs **~15.7s and 586 tokens** through OpenRouter (qwen3-32b) — **~7.9x faster**. Your numbers will vary
+with hardware and prompt size; see [docs/performance.md](docs/performance.md) before you rely on a latency figure.
+
+## How it works
+
+```mermaid
+flowchart LR
+    Agent["AI Agent<br/>LangChain · OpenCode · your own loop"]
+    Bridge["JEV-CPU-AgentBridge<br/>FastAPI"]
+    Engine["Decision engine<br/>SemIfEngine or LayaEngine<br/>one forward pass, CPU"]
+    Result["{ decision, probabilities,<br/>selected_probability, accepted }"]
+
+    Agent -- "POST /v1/decide<br/>{state, question, options[2..16]}" --> Bridge
+    Bridge -- "build engine-specific prompt/question" --> Engine
+    Engine -- "score options only, no generate()" --> Result
+    Result -.-> Agent
+```
+
+No `model.generate()` is ever called — it's a single forward pass plus a probability distribution over
+a handful of options, which is what makes it fast enough to run on a CPU.
+
+### Sequence diagram
+
+```mermaid
+sequenceDiagram
+    participant Agent as AI Agent
+    participant Bridge as JEV-CPU-AgentBridge (FastAPI)
+    participant Engine as DecisionEngine (semif or laya)
+    participant Model as Model (CPU)
+
+    Agent->>Bridge: POST /v1/decide<br/>{state, question, options[2..16]}
+    Bridge->>Engine: decide(state, question, options)
+    Engine->>Engine: build engine-specific prompt/question<br/>(SemIf letters A..P, or Laya criteria dict)
+    Engine->>Model: single forward pass — no generate(), no sampling
+    Model-->>Engine: logits
+    Engine->>Engine: probability distribution over options only
+    Engine-->>Bridge: DecisionResult(decision, probabilities, accepted)
+    Bridge-->>Agent: 200 OK { decision, probabilities, selected_probability, accepted }
+
+    Note over Agent,Model: decide_batch() scores several decisions against one shared state<br/>in fewer forward passes than calling decide() N times
+```
+
+## Pluggable engines
+
+The scoring backend is swappable with one environment variable — the API your agents call
+(`/v1/decide`, SDKs, integrations) never changes:
+
+```bash
+JEV_ENGINE=semif   # default — Qwen3-0.6B causal LM, next-token scoring
+JEV_ENGINE=laya    # non-autoregressive encoder models (github.com/NandhaKishorM/laya)
+                    # pip install jev-cpu-agentbridge[laya]
+```
+
+Laya's own published benchmarks (GPU, third-party numbers for "Jev") claim ~7.8x lower latency and
+better calibration than a Jev-style causal-LM engine, but lose badly past ~50 options. Nobody had
+published a real **CPU** head-to-head — the case this project actually cares about — so we ran one:
+
+| Metric (CPU, warm cache) | semif (Qwen3-0.6B) | laya (English, 421M) |
+|---|---|---|
+| Warm direct p50 | 720ms | 339ms (~2.1x faster) |
+| Warm shared, batch of 3 | 1.506s | 0.852s (~1.8x faster) |
+| Cold start | 11.6s | 34.3s (slower to spin up) |
+
+Single machine (Intel i7-6700HQ, no GPU), single run — re-run `python -m benchmarks.run --engine
+semif` vs `--engine laya` on your own hardware before trusting this for a real decision. Full
+methodology and caveats: [docs/performance.md](docs/performance.md#measured-semif-vs-laya-cpu-warm-cache).
+Adding a third backend is a new `DecisionEngine` implementation plus one line in
+`engine/registry.py`; see [docs/architecture.md](docs/architecture.md#swapping-engines).
 
 ## Quick start
+
+Requires Docker.
 
 ```bash
 docker compose up --build
 ```
 
-Then:
-
 ```bash
 curl http://localhost:8000/health
+# {"status":"ok"}
 ```
 
-## First decision
+### Your first decision
 
 ```bash
 curl -X POST http://localhost:8000/v1/decide \
@@ -40,10 +124,28 @@ curl -X POST http://localhost:8000/v1/decide \
   }'
 ```
 
-## Python SDK
+```json
+{
+  "decision": {"id": "retry", "description": "Retry the deployment"},
+  "probabilities": {"retry": 0.81, "abort": 0.19},
+  "selected_probability": 0.81,
+  "accepted": true,
+  "metadata": {"engine": "semif", "mode": "direct", "model": "Qwen/Qwen3-0.6B", "latency_ms": 210.4}
+}
+```
+
+Full request/response reference: [docs/api.md](docs/api.md). Architecture details: [docs/architecture.md](docs/architecture.md).
+
+## SDKs
+
+### Python
+
+```bash
+pip install -e sdk/python
+```
 
 ```python
-from jev_cpu_agentbridge import AgentBridgeClient
+from jev_agent_bridge import AgentBridgeClient
 
 client = AgentBridgeClient("http://localhost:8000")
 result = client.decide(
@@ -57,7 +159,11 @@ result = client.decide(
 print(result["decision"]["id"])
 ```
 
-## TypeScript SDK
+### TypeScript
+
+```bash
+npm install @jev-cpu/agentbridge
+```
 
 ```ts
 import { AgentBridgeClient } from "@jev-cpu/agentbridge";
@@ -74,16 +180,121 @@ const result = await client.decide({
 console.log(result.decision.id);
 ```
 
-## OpenCode integration
+No SDK needed either — it's one HTTP call, so any language works.
 
-See `integrations/opencode/`.
+## Integrating with your agent
+
+### OpenCode (built-in, tested)
+
+A plugin + skill are included in [integrations/opencode/](integrations/opencode/) and exercised end-to-end in
+[examples/opencode-docker/](examples/opencode-docker/).
+
+1. Point the plugin at your running Bridge instance:
+   ```bash
+   export JEV_CPU_AGENTBRIDGE_URL=http://localhost:8000
+   ```
+2. Register it in `opencode.json`:
+   ```json
+   { "plugin": ["./integrations/opencode/plugin/jev-cpu-agentbridge.mjs"] }
+   ```
+3. The agent gets a `jev_decide` tool it can call directly — see
+   [integrations/opencode/README.md](integrations/opencode/README.md).
+
+Try the full working example (JEV vs. an OpenRouter model, side by side):
+
+```bash
+docker compose -f examples/opencode-docker/docker-compose.yml up --build
+```
+
+### Other agent frameworks (generic pattern, bring your own wiring)
+
+JEV-CPU-AgentBridge is just a REST endpoint, so it drops into any framework that supports custom tools /
+function calling. These snippets are illustrative — only the OpenCode integration above has been tested
+end-to-end in this repo.
+
+<details>
+<summary><strong>LangChain / LangGraph</strong></summary>
+
+```python
+from langchain_core.tools import tool
+from jev_agent_bridge import AgentBridgeClient
+
+client = AgentBridgeClient("http://localhost:8000")
+
+@tool
+def jev_decide(state: str, question: str, options: list[dict]) -> dict:
+    """Ask JEV-CPU-AgentBridge to make a small discrete decision."""
+    return client.decide(state=state, question=question, options=options)
+```
+</details>
+
+<details>
+<summary><strong>CrewAI</strong></summary>
+
+```python
+from crewai.tools import tool
+from jev_agent_bridge import AgentBridgeClient
+
+client = AgentBridgeClient("http://localhost:8000")
+
+@tool("jev_decide")
+def jev_decide(state: str, question: str, options: list[dict]) -> dict:
+    """Local CPU decision for small discrete choices."""
+    return client.decide(state=state, question=question, options=options)
+```
+</details>
+
+<details>
+<summary><strong>OpenAI function calling / Assistants API</strong></summary>
+
+Declare it as a tool schema (mirrors `POST /v1/decide`), call the Bridge yourself when the model invokes it:
+
+```json
+{
+  "type": "function",
+  "function": {
+    "name": "jev_decide",
+    "description": "Local CPU decision for small discrete choices (2-16 options).",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "state": {"type": "string"},
+        "question": {"type": "string"},
+        "options": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {"id": {"type": "string"}, "description": {"type": "string"}}
+          }
+        }
+      },
+      "required": ["state", "question", "options"]
+    }
+  }
+}
+```
+</details>
+
+<details>
+<summary><strong>Anthropic (Claude) tool use</strong></summary>
+
+Same idea — declare a `jev_decide` tool with the schema above in your `tools` list, and when Claude requests
+it, forward the input to `POST /v1/decide` and return the JSON result as the tool result block.
+</details>
+
+## Releases & CI
+
+- Versioning follows [SemVer](https://semver.org/); see [CHANGELOG.md](CHANGELOG.md) for the release history.
+- `.github/workflows/ci.yml` runs lint + tests on every push/PR.
+- `.github/workflows/release.yml` builds and publishes the Docker image to this instance's container registry
+  whenever a `vX.Y.Z` tag is pushed.
 
 ## Documentation
 
 - [Architecture](docs/architecture.md)
-- [API](docs/api.md)
-- [Integration](docs/integration.md)
-- [Performance](docs/performance.md)
+- [API reference](docs/api.md)
+- [Integration guide](docs/integration.md)
+- [Performance / benchmarking](docs/performance.md)
 
 ## License
 

@@ -4,9 +4,6 @@ from __future__ import annotations
 
 import torch
 
-from jev_cpu_agentbridge.engine.base import Option
-from jev_cpu_agentbridge.engine.tokenizer_slots import TokenSlotValidator
-
 
 class FakeTokenizer:
     """Tokenizer mapping A-P to tokens 0-15 and other chars to unique tokens."""
@@ -47,7 +44,14 @@ class FakeModel:
         self.calls = 0
         self.calls_with_cache = 0
 
-    def __call__(self, *, input_ids: torch.Tensor, use_cache: bool, logits_to_keep: int | None = None, past_key_values=None):
+    def __call__(
+        self,
+        *,
+        input_ids: torch.Tensor,
+        use_cache: bool,
+        logits_to_keep: int | None = None,
+        past_key_values=None,
+    ):
         self.calls += 1
         if use_cache:
             self.calls_with_cache += 1

@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "jev-cpu-agentbridge"
-version = "0.3.0"
-description = "JEV-CPU-AgentBridge — Local decision gateway for AI agents using CPU-first inference"
+version = "0.4.0"
+description = "JEV-CPU-AgentBridge — standard decision REST API over pluggable local CPU engines"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.110.0",
@@ -29,6 +29,7 @@ laya = [
 
 [project.scripts]
 jev-decide = "jev_cpu_agentbridge.main:main"
+jev-eval = "jev_cpu_agentbridge.evaluation:main"
 
 [tool.uv.sources]
 torch = { index = "pytorch-cpu" }

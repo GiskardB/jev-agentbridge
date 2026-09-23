@@ -64,19 +64,49 @@ class FakeModel:
         })()
 
 
-def make_engine(**kwargs: object):
-    from jev_cpu_agentbridge.engine.semif import SemIfEngine
+def make_adapter(model: object | None = None, max_input_tokens: int = 10000):
+    from jev_cpu_agentbridge.adapters.semif.adapter import SemIfAdapter
 
-    engine = SemIfEngine(
-        model=FakeModel(),
+    return SemIfAdapter(
+        model=model or FakeModel(),
         tokenizer=FakeTokenizer(),
         model_name="fake",
         model_revision="fake",
-        max_input_tokens=10000,
-        min_selected_probability=0.5,
-        **kwargs,
+        max_input_tokens=max_input_tokens,
     )
-    return engine
+
+
+class FakeAdapter:
+    """DecisionAdapter returning fixed probabilities: first option gets `top`."""
+
+    def __init__(self, top: float = 0.8, ready: bool = True, thread_safe: bool = True) -> None:
+        self.top = top
+        self.ready = ready
+        self.thread_safe = thread_safe
+        self.batch_calls = 0
+        self.error: Exception | None = None
+
+    def info(self):
+        from jev_cpu_agentbridge.core.ports import EngineInfo
+
+        return EngineInfo(name="fake", model="fake-model", thread_safe=self.thread_safe)
+
+    def is_ready(self) -> bool:
+        return self.ready
+
+    def score(self, *, state, decision):
+        from jev_cpu_agentbridge.core.models import Scores
+
+        if self.error is not None:
+            raise self.error
+        rest = (1 - self.top) / (len(decision.options) - 1)
+        probabilities = {o.id: rest for o in decision.options}
+        probabilities[decision.options[0].id] = self.top
+        return Scores(probabilities=probabilities, input_tokens=7, details={"k": "v"})
+
+    def score_batch(self, *, state, decisions):
+        self.batch_calls += 1
+        return [self.score(state=state, decision=d) for d in decisions]
 
 
 class HighModel(FakeModel):

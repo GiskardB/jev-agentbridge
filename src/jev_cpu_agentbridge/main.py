@@ -2,58 +2,66 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import logging
+from contextlib import asynccontextmanager
+from typing import AsyncIterator
 
 from fastapi import FastAPI
 
-from .api.errors import BridgeError
+from . import __version__
+from .api.errors import install_error_handlers
 from .api.routes import create_router
-from .engine.base import DecisionEngine
+from .core.ports import DecisionAdapter
+from .core.service import DecisionService
 from .runtime.settings import Settings
 
-if TYPE_CHECKING:
-    pass
-
-app = FastAPI(title="JEV-CPU-AgentBridge", version="0.3.0")
-
-_settings = Settings.from_env()
+logger = logging.getLogger("jev_cpu_agentbridge")
 
 
-@app.on_event("startup")
-async def startup() -> None:
-    """Load the configured decision engine (JEV_ENGINE)."""
-    from .engine.registry import create_engine
+def create_app(
+    settings: Settings | None = None,
+    adapter: DecisionAdapter | None = None,
+) -> FastAPI:
+    """Build the app.
 
-    app.state.engine = create_engine(_settings)
+    Without `adapter`, the one named by `settings.engine` (JEV_ENGINE) is built at
+    startup. Passing an adapter (tests, embedding) skips the registry entirely.
+    """
+
+    settings = settings or Settings.from_env()
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        if app.state.service is None:
+            from .adapters.registry import create_adapter
+
+            logger.info("Loading decision engine %r", settings.engine)
+            app.state.service = DecisionService(
+                create_adapter(settings.engine),
+                default_threshold=settings.min_selected_probability,
+            )
+        yield
+
+    app = FastAPI(title="JEV-CPU-AgentBridge", version=__version__, lifespan=lifespan)
+    app.state.service = (
+        DecisionService(adapter, default_threshold=settings.min_selected_probability)
+        if adapter is not None
+        else None
+    )
+    install_error_handlers(app)
+    app.include_router(create_router(lambda: app.state.service))
+    return app
 
 
-@app.on_event("shutdown")
-async def shutdown() -> None:
-    """Clean up resources on shutdown."""
-    pass
-
-
-def get_engine() -> DecisionEngine:
-    """Get the decision engine from app state."""
-    engine = getattr(app.state, "engine", None)
-    if engine is None:
-        raise RuntimeError("Engine not initialized. Call startup event first.")
-    return engine
-
-
-app.include_router(create_router(get_engine, _settings))
-
-
-@app.exception_handler(BridgeError)
-async def bridge_error_handler(request, error: BridgeError):
-    return {"error": error.to_response()["error"]}
+app = create_app()
 
 
 def main() -> None:
     """Run the service with Uvicorn."""
     import uvicorn
 
-    uvicorn.run(app, host=_settings.host, port=_settings.port)
+    settings = Settings.from_env()
+    uvicorn.run(app, host=settings.host, port=settings.port)
 
 
 if __name__ == "__main__":

@@ -1,45 +1,43 @@
-"""Structured API errors."""
+"""One error envelope for every failure: {"error": {"code", "message", "request_id"}}."""
 
 from __future__ import annotations
 
+import logging
 import uuid
-from typing import Any
 
-from fastapi import HTTPException
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from ..core.errors import DecisionError
 
-class ErrorCode:
-    """Valid error codes."""
-
-    INVALID_REQUEST = "INVALID_REQUEST"
-    INVALID_OPTIONS = "INVALID_OPTIONS"
-    DUPLICATE_OPTION_ID = "DUPLICATE_OPTION_ID"
-    TOO_MANY_OPTIONS = "TOO_MANY_OPTIONS"
-    TOO_FEW_OPTIONS = "TOO_FEW_OPTIONS"
-    INPUT_TOO_LARGE = "INPUT_TOO_LARGE"
-    TOKEN_SLOT_INVALID = "TOKEN_SLOT_INVALID"
-    MODEL_LOAD_FAILED = "MODEL_LOAD_FAILED"
-    MODEL_NOT_READY = "MODEL_NOT_READY"
-    ENGINE_ERROR = "ENGINE_ERROR"
-    UNSUPPORTED_MODE = "UNSUPPORTED_MODE"
+logger = logging.getLogger("jev_cpu_agentbridge")
 
 
-class BridgeError(HTTPException):
-    """Structured bridge error."""
+def error_response(status_code: int, code: str, message: str) -> JSONResponse:
+    request_id = str(uuid.uuid4())
+    return JSONResponse(
+        status_code=status_code,
+        content={"error": {"code": code, "message": message, "request_id": request_id}},
+    )
 
-    def __init__(self, *, code: str, message: str, status_code: int = 400) -> None:
-        self.code = code
-        self.request_id = str(uuid.uuid4())
-        super().__init__(
-            status_code=status_code,
-            detail={"code": code, "message": message, "request_id": self.request_id},
+
+def install_error_handlers(app: FastAPI) -> None:
+    @app.exception_handler(DecisionError)
+    async def _decision_error(_: Request, error: DecisionError) -> JSONResponse:
+        if error.status_code >= 500:
+            logger.error("%s: %s", error.code, error.message)
+        return error_response(error.status_code, error.code, error.message)
+
+    @app.exception_handler(RequestValidationError)
+    async def _validation_error(_: Request, error: RequestValidationError) -> JSONResponse:
+        details = "; ".join(
+            f"{'.'.join(str(part) for part in item['loc'])}: {item['msg']}"
+            for item in error.errors()
         )
+        return error_response(422, "INVALID_REQUEST", details)
 
-    def to_response(self) -> dict[str, Any]:
-        return {
-            "error": {
-                "code": self.code,
-                "message": self.message,
-                "request_id": self.request_id,
-            }
-        }
+    @app.exception_handler(StarletteHTTPException)
+    async def _http_error(_: Request, error: StarletteHTTPException) -> JSONResponse:
+        return error_response(error.status_code, "HTTP_ERROR", str(error.detail))

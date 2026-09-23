@@ -1,137 +1,126 @@
-"""FastAPI route definitions."""
+"""HTTP routes: map the v1 contract to DecisionService calls, nothing engine-specific.
+
+Handlers are plain `def`, so FastAPI runs them in its thread pool: a slow CPU decision
+no longer blocks the event loop (and with it /health, /ready and other requests).
+"""
 
 from __future__ import annotations
 
 from typing import Callable
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 
-from ..engine.base import DecisionEngine, DecisionResult
-from ..runtime.settings import Settings
-from .errors import BridgeError, ErrorCode
+from .. import API_VERSION, __version__
+from ..adapters.registry import available_engines
+from ..core.errors import EngineNotReadyError
+from ..core.models import MAX_OPTIONS, MIN_OPTIONS, Decision, DecisionResult, Option
+from ..core.service import DecisionService
+from .errors import error_response
 from .schemas import (
+    BatchDecideItem,
     BatchDecideRequest,
     BatchDecideResponse,
     DecideRequest,
     DecideResponse,
+    EngineInfoOut,
+    ErrorResponse,
     HealthResponse,
     InfoResponse,
+    OptionIn,
     ReadyResponse,
 )
 
+ServiceProvider = Callable[[], "DecisionService | None"]
 
-def create_router(
-    get_engine: Callable[[], DecisionEngine],
-    settings: Settings,
-) -> APIRouter:
-    """Create the API router."""
+_ERRORS = {
+    400: {"model": ErrorResponse},
+    413: {"model": ErrorResponse},
+    422: {"model": ErrorResponse},
+    500: {"model": ErrorResponse},
+    503: {"model": ErrorResponse},
+}
 
+
+def create_router(get_service: ServiceProvider) -> APIRouter:
     router = APIRouter()
 
+    def service() -> DecisionService:
+        current = get_service()
+        if current is None:
+            raise EngineNotReadyError("The decision engine is still loading")
+        return current
+
     @router.get("/health", response_model=HealthResponse)
-    async def health() -> HealthResponse:
+    def health() -> HealthResponse:
         return HealthResponse(status="ok")
 
-    @router.get("/ready", response_model=ReadyResponse)
-    async def ready() -> ReadyResponse:
-        try:
-            engine = get_engine()
-            if not getattr(engine, "_ready", False):
-                raise HTTPException(status_code=503, detail={"status": "not ready"})
-        except (RuntimeError, LookupError):
-            raise HTTPException(status_code=503, detail={"status": "not ready"})
-        model, _ = _engine_model_info(settings)
-        return ReadyResponse(
-            status="ready",
-            model=model,
-        )
+    @router.get("/ready", response_model=ReadyResponse, responses={503: {"model": ErrorResponse}})
+    def ready():
+        current = get_service()
+        if current is None or not current.is_ready():
+            return error_response(503, "MODEL_NOT_READY", "The decision engine is not ready")
+        info = current.info()
+        return ReadyResponse(status="ready", engine=info.name, model=info.model)
 
-    @router.get("/v1/info", response_model=InfoResponse)
-    async def info() -> InfoResponse:
-        model, revision = _engine_model_info(settings)
+    @router.get("/v1/info", response_model=InfoResponse, responses=_ERRORS)
+    def info() -> InfoResponse:
+        current = service()
+        engine = current.info()
         return InfoResponse(
-            engine=settings.engine,
-            model=model,
-            revision=revision,
+            api_version=API_VERSION,
+            version=__version__,
+            engine=EngineInfoOut(
+                name=engine.name,
+                model=engine.model,
+                revision=engine.revision,
+                native_batch=engine.native_batch,
+            ),
+            available_engines=available_engines(),
+            min_options=MIN_OPTIONS,
+            max_options=MAX_OPTIONS,
+            default_min_selected_probability=current.default_threshold,
             supported_modes=["direct", "shared"],
-            max_options=16,
-            version="0.3.0",
         )
 
-    @router.post("/v1/decide", response_model=DecideResponse)
-    async def decide(request: DecideRequest) -> DecideResponse:
-        engine = get_engine()
-        try:
-            result: DecisionResult = engine.decide(
-                state=request.state,
-                question=request.question,
-                options=_to_domain_options(request.options),
-                min_selected_probability=request.model_dump().get(
-                    "min_selected_probability"
-                ),
-            )
-        except BridgeError as error:
-            raise HTTPException(
-                status_code=400, detail=error.to_response()
-            )
-        except Exception as error:  # noqa: BLE001
-            raise HTTPException(
-                status_code=500,
-                detail={"code": ErrorCode.ENGINE_ERROR, "message": str(error)},
-            )
+    @router.post("/v1/decide", response_model=DecideResponse, responses=_ERRORS)
+    def decide(request: DecideRequest) -> DecideResponse:
+        result = service().decide(
+            state=request.state,
+            decision=_to_decision(request, request.min_selected_probability),
+        )
         return _to_response(result)
 
-    @router.post("/v1/decide/batch", response_model=BatchDecideResponse)
-    async def decide_batch(request: BatchDecideRequest) -> BatchDecideResponse:
-        try:
-            engine = get_engine()
-        except RuntimeError:
-            raise HTTPException(status_code=503, detail={"status": "not ready"})
-        try:
-            decisions: list[tuple[str, list]] = [
-                (dec.question, _to_domain_options(dec.options))
-                for dec in request.decisions
-            ]
-            results: list[DecisionResult] = engine.decide_batch(
-                state=request.state,
-                decisions=decisions,
-                min_selected_probability=None,
+    @router.post("/v1/decide/batch", response_model=BatchDecideResponse, responses=_ERRORS)
+    def decide_batch(request: BatchDecideRequest) -> BatchDecideResponse:
+        decisions = [
+            _to_decision(
+                item,
+                item.min_selected_probability
+                if item.min_selected_probability is not None
+                else request.min_selected_probability,
             )
-        except BridgeError as error:
-            raise HTTPException(
-                status_code=400, detail=error.to_response()
-            )
-        except Exception as error:  # noqa: BLE001
-            raise HTTPException(
-                status_code=500,
-                detail={"code": ErrorCode.ENGINE_ERROR, "message": str(error)},
-            )
+            for item in request.decisions
+        ]
+        results = service().decide_batch(state=request.state, decisions=decisions)
         return BatchDecideResponse(decisions=[_to_response(r) for r in results])
 
     return router
 
 
-def _engine_model_info(settings: Settings) -> tuple[str, str]:
-    """Return (model, revision) to report for the active engine (JEV_ENGINE)."""
-
-    if settings.engine == "laya":
-        return settings.laya_model_name, settings.laya_subfolder or "main"
-    if settings.engine == "rizzoflow":
-        return settings.rizzoflow_url, "n/a"
-    return settings.model_name, settings.model_revision
+def _to_decision(item: DecideRequest | BatchDecideItem, threshold: float | None) -> Decision:
+    return Decision(
+        question=item.question,
+        options=tuple(Option(id=o.id, description=o.description) for o in item.options),
+        min_selected_probability=threshold,
+    )
 
 
-def _to_domain_options(options: list[dict]) -> list:
-    from ..engine.base import Option
-
-    return [Option(id=o.id, description=o.description) for o in options]
-
-
-def _to_response(result: DecisionResult) -> dict:
+def _to_response(result: DecisionResult) -> DecideResponse:
     return DecideResponse(
-        decision={"id": result.decision.id, "description": result.decision.description},
+        decision=OptionIn(id=result.decision.id, description=result.decision.description),
         probabilities=result.probabilities,
         selected_probability=result.selected_probability,
         accepted=result.accepted,
+        threshold=result.threshold,
         metadata=result.metadata,
-    ).model_dump()
+    )

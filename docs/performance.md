@@ -71,3 +71,38 @@ Note: as of this writing, `rizzo download`'s tar extraction (`TarFile.extract(..
 requires Python ≥3.12, even though the project's own `pyproject.toml` declares `requires-python =
 ">=3.11"`; it fails on 3.11. Unrelated to this Bridge (RizzoFlow runs as its own separate process),
 but worth knowing before you hit it yourself.
+
+## Accuracy and threshold
+
+Latency says nothing about whether an engine is right. When JEV gates an LLM, the question is:
+*at which threshold do decisions with `accepted=true` match what the LLM would have decided, and
+what share of traffic does that leave to JEV?* `jev-eval` measures this against any running
+Bridge, for any engine:
+
+```bash
+jev-eval --dataset examples/eval/sample.jsonl --url http://localhost:8000 --target-accuracy 0.97
+```
+
+The dataset is JSONL, one labelled decision per line (`state`, `question`, `options`,
+`expected`). For each threshold from 0.50 to 0.95 the tool prints two numbers. *Coverage* is the
+share of decisions JEV would answer alone. *Accuracy on accepted* is how often those answers are
+right. It then recommends the lowest threshold that reaches the target, which is the one with
+the most coverage. Use 200–500 real examples of one decision type; `examples/eval/sample.jsonl`
+(12 rows) only shows the format.
+
+### Measured: semif on the sample dataset
+
+One run, `semif` with Qwen3-0.6B on CPU, the 12-row sample:
+
+| Threshold | Coverage | Accuracy on accepted |
+|---|---|---|
+| 0.60 | 100% | 41.7% |
+| 0.70 | 58.3% | 57.1% |
+| 0.75 | 33.3% | 75.0% |
+| 0.80 | 8.3% | 100% (1 decision) |
+
+Overall accuracy was 41.7%, close to chance for 2–3 options. The same numbers come out of the
+pre-0.4.0 engine, so this is not a refactor regression. The prompt looks like the cause. On the
+same 12 rows, appending `"\n\nAnswer:"` to the current prompt raised semif to 9/12 correct, and
+wrapping it in Qwen's chat template (thinking disabled) gave 8/12. Twelve rows are too few to
+change the default prompt. Validate a new prompt version on a real dataset with `jev-eval` first.

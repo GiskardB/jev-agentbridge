@@ -88,6 +88,11 @@ export default async ({ client } = {}) => {
             log("error", `jev_decide failed: ${message}`);
             throw new Error(message);
           }
+          log(
+            "info",
+            `jev_decide -> ${body.decision.id} (accepted=${body.accepted}, p=${body.selected_probability.toFixed(2)}, ` +
+              `engine=${body.metadata?.engine}, ${body.metadata?.latency_ms}ms)`,
+          );
           return {
             title: `${body.decision.id} (p=${body.selected_probability.toFixed(2)})`,
             output: JSON.stringify(body, null, 2),

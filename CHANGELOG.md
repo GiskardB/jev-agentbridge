@@ -21,6 +21,10 @@
   register a skill in code, only filesystem discovery, so this closes the gap without the
   developer having to copy anything by hand. Global install (`~/.config/opencode/skills/`) is
   still a manual step, documented in `integrations/opencode/README.md`.
+- Add: `jev_decide` now logs a one-line summary (`decision`, `accepted`, `selected_probability`,
+  `engine`, `latency_ms`) on every successful call, not just on failure — makes it possible to
+  confirm from OpenCode's own logs whether a given session actually engaged JEV, without relying
+  on scrolling the transcript.
 
 ## 0.3.1
 

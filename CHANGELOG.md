@@ -34,6 +34,66 @@
   that bypasses entrypoint resolution entirely — only the npm install path was broken. Fixed by
   adding `"main": "./plugin/jev-cpu-agentbridge.mjs"`.
 
+## 0.4.0
+
+Architecture: a standard REST contract with engine adapters behind it (ports & adapters).
+
+- Change: **laya is now the default engine** (`JEV_ENGINE` default, Dockerfile `ENGINE`
+  default, and the `:latest` image tag). On the 12-row samples it scored 83.3% (English) and
+  75% (Italian), against 41.7% / 41.7% for semif with its default prompt. It was also faster
+  (~350ms vs ~530ms p50). `laya` is now a core dependency; the `[laya]` extra is kept empty
+  for compatibility. semif moves to the `:semif` tag. **Breaking for `:latest` users who
+  relied on semif:** pull `:semif` or set `JEV_ENGINE=semif`.
+- Fix: the laya adapter used Laya's `confidence` as `selected_probability`. That field is
+  1 − normalized entropy, not the probability of the chosen option. For example, p=0.64 comes
+  back as confidence 0.056, so against the 0.60 threshold laya almost never returned
+  `accepted=true`. `selected_probability` is now the chosen option's probability, as for every
+  engine. Laya's value is still reported as `metadata.engine_details.confidence`.
+- Add: `JEV_SEMIF_PROMPT_VERSION` selects the semif prompt. `direct-options-v1` stays the
+  default. `direct-options-v2` appends `"\n\nAnswer:"` and scored 75% / 66.7% on the samples
+  (v1: 41.7%). The active version is reported in `metadata.engine_details.prompt_version`.
+- Add: `examples/eval/sample_it.jsonl`, the Italian version of the sample dataset.
+  `docs/performance.md` has the full engine × language table, including
+  `JEV_LAYA_SUBFOLDER=multilingual` (75% / 75% at ~170ms).
+
+- Change: code reorganized into `api/` (v1 contract, routes, error envelope), `core/` (domain
+  models, `DecisionAdapter` port, `DecisionService`, domain errors) and `adapters/<engine>/`
+  (semif, laya, rizzoflow, each with its own config read from its own env vars). Adapters only
+  score; validation, argmax, the acceptance threshold, timing and the response shape now live
+  once in `DecisionService`, so every engine behaves identically.
+- Fix: semif returned `probabilities` keyed by letters (`{"A": .., "B": ..}`) while laya and
+  rizzoflow used option ids. All engines now key by option id.
+- Fix: per-request `min_selected_probability` was silently ignored (not in the request schema).
+  It is now accepted on `/v1/decide`, on each batch item and at batch level. Precedence is
+  item, then batch, then `JEV_MIN_SELECTED_PROBABILITY`. The applied value is returned as
+  `threshold`.
+- Fix: routes were `async` but ran the model synchronously, so one CPU decision blocked every
+  other request, `/health` included. They now run in the thread pool. Adapters that are not
+  thread-safe are serialized by the service.
+- Change: one error envelope `{"error": {code, message, request_id}}` for every failure,
+  including 422 validation and 503. New codes: `DUPLICATE_OPTION_ID` (400), `INPUT_TOO_LARGE`
+  (413), `ENGINE_UNAVAILABLE` (503, e.g. RizzoFlow unreachable), `MODEL_NOT_READY` (503).
+- Change: `/v1/info` now reports `api_version`, `engine{name, model, revision, native_batch}`,
+  `available_engines` and `default_min_selected_probability`. `/ready` also reports `engine`.
+  Response `metadata` has a stable core (`engine`, `model`, `model_revision`, `mode`,
+  `latency_ms`, `input_tokens?`). Adapter-specific fields moved under `engine_details`.
+- Add: `jev-eval` (`python -m jev_cpu_agentbridge.evaluation`) measures accuracy vs coverage per
+  threshold on a labelled JSONL dataset against any running Bridge, and recommends a
+  threshold. Sample format in `examples/eval/sample.jsonl`.
+- Add: SDK gate helpers: Python `decide_or_fallback()` and TypeScript `decideOrFallback()`.
+  They use JEV when `accepted`, otherwise call your fallback (e.g. an LLM), including when the
+  Bridge is unreachable. Both SDKs accept `min_selected_probability`. The TypeScript SDK
+  raises a typed `BridgeError` and has a request timeout.
+- Change: Python SDK `decide_batch()` now returns the list of results, as its signature
+  already said, instead of the `{"decisions": [...]}` wrapper.
+- Docs: repositioned around the gate-in-the-orchestrator pattern. Architecture, API and
+  integration guides rewritten. First accuracy measurement added to `docs/performance.md`:
+  semif with the current prompt got 41.7% on the 12-row sample, and appending `Answer:` to the
+  prompt got 9/12.
+- Breaking (library imports only; the HTTP API stays backward compatible):
+  `jev_cpu_agentbridge.engine.*` and `domain.models` are gone. Use `core.*` and `adapters.*`.
+  `JEV_MODEL_DTYPE` and `JEV_PROMPT_VERSION` were never applied and have been removed.
+
 ## 0.3.1
 
 - Change: Docker images now bake in the engine selection (`JEV_ENGINE` is set via the Dockerfile's

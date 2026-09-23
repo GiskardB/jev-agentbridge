@@ -7,6 +7,10 @@ different engines can be compared on the same hardware. See docs/performance.md.
 Usage:
     python -m benchmarks.run --engine semif
     python -m benchmarks.run --engine laya
+    python -m benchmarks.run --engine rizzoflow
+
+Latency only; for accuracy and threshold choice see `jev-eval`
+(jev_cpu_agentbridge/evaluation.py).
 """
 
 from __future__ import annotations
@@ -16,8 +20,9 @@ import dataclasses
 import json
 import time
 
-from jev_cpu_agentbridge.engine.base import Option
-from jev_cpu_agentbridge.engine.registry import create_engine
+from jev_cpu_agentbridge.adapters.registry import available_engines, create_adapter
+from jev_cpu_agentbridge.core.models import Decision, Option
+from jev_cpu_agentbridge.core.service import DecisionService
 from jev_cpu_agentbridge.runtime.settings import Settings
 
 SCENARIOS = [
@@ -60,7 +65,9 @@ def _percentile(values: list[float], pct: float) -> float:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--engine", default=None, help="Override JEV_ENGINE (semif or laya)")
+    parser.add_argument(
+        "--engine", default=None, choices=available_engines(), help="Override JEV_ENGINE"
+    )
     parser.add_argument("--iterations", type=int, default=10, help="Warm iterations per scenario")
     args = parser.parse_args()
 
@@ -71,36 +78,27 @@ def main() -> None:
     print(f"Benchmarking JEV-CPU-AgentBridge — engine={settings.engine}")
 
     cold_started = time.perf_counter()
-    engine = create_engine(settings)
+    engine = DecisionService(
+        create_adapter(settings.engine), default_threshold=settings.min_selected_probability
+    )
     cold_start_seconds = time.perf_counter() - cold_started
 
     # Discard the first call: it pays one-time JIT/compilation warmup that isn't
     # representative of steady-state latency and would otherwise skew p95/max.
     warmup_state, warmup_question, warmup_options = SCENARIOS[0]
-    engine.decide(
-        state=warmup_state,
-        question=warmup_question,
-        options=warmup_options,
-        min_selected_probability=None,
-    )
+    engine.decide(state=warmup_state, decision=Decision(warmup_question, tuple(warmup_options)))
 
     latencies_ms: list[float] = []
     for _ in range(args.iterations):
         for state, question, options in SCENARIOS:
             started = time.perf_counter()
-            engine.decide(
-                state=state,
-                question=question,
-                options=options,
-                min_selected_probability=None,
-            )
+            engine.decide(state=state, decision=Decision(question, tuple(options)))
             latencies_ms.append((time.perf_counter() - started) * 1000)
 
     shared_started = time.perf_counter()
     engine.decide_batch(
         state="Shared benchmark state: system under evaluation.",
-        decisions=[(question, options) for _, question, options in SCENARIOS],
-        min_selected_probability=None,
+        decisions=[Decision(question, tuple(options)) for _, question, options in SCENARIOS],
     )
     warm_shared_seconds = time.perf_counter() - shared_started
 

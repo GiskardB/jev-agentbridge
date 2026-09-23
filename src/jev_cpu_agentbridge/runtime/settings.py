@@ -1,4 +1,4 @@
-"""Runtime configuration for JEV-CPU-AgentBridge."""
+"""Service-level configuration. Engine-specific settings live in each adapter's config."""
 
 from __future__ import annotations
 
@@ -8,40 +8,20 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class Settings:
-    """Application settings loaded from environment variables."""
+    """Settings loaded from environment variables."""
 
     host: str = "127.0.0.1"
     port: int = 8000
-    engine: str = "semif"
-    model_name: str = "Qwen/Qwen3-0.6B"
-    model_revision: str = "main"
-    model_dtype: str = "float32"
-    model_device: str = "cpu"
-    max_input_tokens: int = 4096
+    engine: str = "laya"  # best measured accuracy and latency on CPU; see docs/performance.md
     min_selected_probability: float = 0.60
-    prompt_version: str = "direct-options-v1"
-    hf_home: str | None = None
-    laya_model_name: str = "convaiinnovations/laya"
-    laya_subfolder: str | None = None
-    rizzoflow_url: str = "http://localhost:8017"
 
     @classmethod
     def from_env(cls) -> "Settings":
-        """Load settings from the environment."""
-
         return cls(
-            host=os.getenv("JEV_HOST", "127.0.0.1"),
-            port=int(os.getenv("JEV_PORT", "8000")),
-            engine=os.getenv("JEV_ENGINE", "semif"),
-            model_name=os.getenv("JEV_MODEL_NAME", "Qwen/Qwen3-0.6B"),
-            model_revision=os.getenv("JEV_MODEL_REVISION", "main"),
-            model_dtype=os.getenv("JEV_MODEL_DTYPE", "float32"),
-            model_device=os.getenv("JEV_MODEL_DEVICE", "cpu"),
-            max_input_tokens=int(os.getenv("JEV_MAX_INPUT_TOKENS", "4096")),
-            min_selected_probability=float(os.getenv("JEV_MIN_SELECTED_PROBABILITY", "0.60")),
-            prompt_version=os.getenv("JEV_PROMPT_VERSION", "direct-options-v1"),
-            hf_home=os.getenv("HF_HOME"),
-            laya_model_name=os.getenv("JEV_LAYA_MODEL_NAME", "convaiinnovations/laya"),
-            laya_subfolder=os.getenv("JEV_LAYA_SUBFOLDER"),
-            rizzoflow_url=os.getenv("JEV_RIZZOFLOW_URL", "http://localhost:8017"),
+            host=os.getenv("JEV_HOST", cls.host),
+            port=int(os.getenv("JEV_PORT", str(cls.port))),
+            engine=os.getenv("JEV_ENGINE", cls.engine),
+            min_selected_probability=float(
+                os.getenv("JEV_MIN_SELECTED_PROBABILITY", str(cls.min_selected_probability))
+            ),
         )

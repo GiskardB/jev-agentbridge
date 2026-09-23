@@ -1,5 +1,4 @@
-"""JEV-CPU-AgentBridge."""
+"""JEV-CPU-AgentBridge: a standard decision REST API over pluggable local engines."""
 
-from jev_cpu_agentbridge.api.routes import create_router  # noqa: F401
-
-__version__ = "0.3.0"
+__version__ = "0.4.0"
+API_VERSION = "v1"

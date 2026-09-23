@@ -4,11 +4,11 @@
 
 <p align="center">
   <strong>Stop paying a full LLM call for a yes/no.</strong><br>
-  A local, CPU-only decision engine that answers your agent's small discrete choices in milliseconds — for free.
+  A standard, local, CPU-only decision API that answers your agent's small discrete choices — for free — with pluggable engines behind it.
 </p>
 
 <p align="center">
-  <img alt="version" src="https://img.shields.io/badge/version-0.3.0-informational">
+  <img alt="version" src="https://img.shields.io/badge/version-0.4.0-informational">
   <img alt="python" src="https://img.shields.io/badge/python-3.11%2B-blue">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-green">
   <a href="https://github.com/GiskardB/jev-agentbridge/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/GiskardB/jev-agentbridge/actions/workflows/ci.yml/badge.svg"></a>
@@ -22,7 +22,17 @@ Every AI agent constantly makes small binary or few-way calls: *retry or abort? 
 Routing those through a full generative LLM (OpenAI, Anthropic, OpenRouter...) burns tokens, money, and 1-15
 seconds of latency for a decision that's really just "pick A, B, or C".
 
-**JEV-CPU-AgentBridge** is a local, CPU-only FastAPI gateway that answers those routine discrete choices in milliseconds — for free. It runs a small model (Qwen3-0.6B, ~600M params) locally on CPU only and scores just the option letters via a single forward pass — no text generation, no GPU, no external API call. Your main agent model stays free to do the actual reasoning; this handles the judgment calls.
+**JEV-CPU-AgentBridge** is a local, CPU-only REST service that answers those routine discrete choices
+for free. It exposes one **standard API** (`/v1/decide`, same request, response and errors for every
+engine). Behind it sits a pluggable **adapter** for the JEV-style engine you choose: Laya
+(the default), semif (Qwen3-0.6B) or RizzoFlow. Each one scores only the options in a single forward pass: no
+text generation, no GPU, no external API call.
+
+**Use it as a gate in your orchestrator, in front of the LLM**, not as a tool the LLM calls.
+Your code asks JEV first; if the answer comes back `accepted` (confident enough), you use it for
+free. Otherwise, or if JEV is down, you ask the LLM as before. The SDKs ship this as
+`decide_or_fallback()` / `decideOrFallback()`, and `jev-eval` tells you which threshold is safe
+for each decision type. Details: [docs/integration.md](docs/integration.md).
 
 Measured on this repo's own [OpenCode example](examples/opencode-docker/): the same decision took **~2s locally
 for $0**, vs **~15.7s and 586 tokens** through OpenRouter (qwen3-32b) — **~7.9x faster**. Your numbers will vary
@@ -34,12 +44,15 @@ with hardware and prompt size; see [docs/performance.md](docs/performance.md) be
 flowchart LR
     Agent["AI Agent<br/>LangChain · OpenCode · your own loop"]
     Bridge["JEV-CPU-AgentBridge<br/>FastAPI"]
-    Engine["Decision engine<br/>SemIfEngine, LayaEngine, or RizzoFlowEngine<br/>one forward pass, CPU"]
-    Result["{ decision, probabilities,<br/>selected_probability, accepted }"]
+    Service["DecisionService<br/>validation · threshold · metadata"]
+    Engine["Engine adapter<br/>semif, laya or rizzoflow<br/>one forward pass, CPU"]
+    Result["{ decision, probabilities,<br/>selected_probability, accepted, threshold }"]
 
     Agent -- "POST /v1/decide<br/>{state, question, options[2..16]}" --> Bridge
-    Bridge -- "build engine-specific prompt/question" --> Engine
-    Engine -- "score options only, no generate()" --> Result
+    Bridge --> Service
+    Service -- "score(state, decision)" --> Engine
+    Engine -- "probability per option id" --> Service
+    Service --> Result
     Result -.-> Agent
 ```
 
@@ -52,52 +65,73 @@ a handful of options, which is what makes it fast enough to run on a CPU.
 sequenceDiagram
     participant Agent as AI Agent
     participant Bridge as JEV-CPU-AgentBridge (FastAPI)
-    participant Engine as DecisionEngine (semif, laya, or rizzoflow)
+    participant Service as DecisionService
+    participant Engine as Adapter (semif, laya, or rizzoflow)
     participant Model as Model (CPU)
 
-    Agent->>Bridge: POST /v1/decide<br/>{state, question, options[2..16]}
-    Bridge->>Engine: decide(state, question, options)
-    Engine->>Engine: build engine-specific prompt/question<br/>(SemIf letters A..P, or Laya criteria dict)
+    Agent->>Bridge: POST /v1/decide<br/>{state, question, options[2..16], min_selected_probability?}
+    Bridge->>Service: decide(state, decision)
+    Service->>Engine: score(state, decision)
+    Engine->>Engine: build engine-specific prompt/question<br/>(SemIf letters A..P, Laya/RizzoFlow criteria)
     Engine->>Model: single forward pass — no generate(), no sampling
     Model-->>Engine: logits
-    Engine->>Engine: probability distribution over options only
-    Engine-->>Bridge: DecisionResult(decision, probabilities, accepted)
-    Bridge-->>Agent: 200 OK { decision, probabilities, selected_probability, accepted }
+    Engine-->>Service: probability per option id
+    Service->>Service: argmax · accepted = p ≥ threshold · metadata
+    Service-->>Bridge: DecisionResult
+    Bridge-->>Agent: 200 OK { decision, probabilities, selected_probability, accepted, threshold }
 
-    Note over Agent,Model: decide_batch() scores several decisions against one shared state<br/>in fewer forward passes than calling decide() N times
+    Note over Agent,Model: /v1/decide/batch scores several decisions against one shared state<br/>in fewer forward passes than calling /v1/decide N times
 ```
 
 ## Pluggable engines
 
-The scoring backend is swappable — the API your agents call (`/v1/decide`, SDKs, integrations)
-never changes. Pick the image tag that matches the engine you want; the engine is baked into the
-image so `JEV_ENGINE` is **not needed** (override it with `-e JEV_ENGINE=...` only if you want a
+The scoring backend is swappable: the API your agents call (`/v1/decide`, SDKs, integrations)
+never changes. The service owns validation, the acceptance threshold and the response shape.
+Adapters only score, so every engine behaves the same from the outside.
+
+Pick the image tag that matches the engine you want. The engine is baked into the image, so `JEV_ENGINE` is **not needed** (override it with `-e JEV_ENGINE=...` only if you want a
 different engine at runtime):
 
 | Image tag | Engine | What it is | Extra setup |
 |---|---|---|---|
-| `:latest` / `:semif` | `semif` (default) | Qwen3-0.6B causal LM, next-token scoring, runs in-process | none |
-| `:laya` | `laya` | Non-autoregressive encoder models ([NandhaKishorM/laya](https://github.com/NandhaKishorM/laya)), runs in-process | none — dependencies already baked in |
+| `:latest` / `:laya` | `laya` (default) | Non-autoregressive encoder models ([NandhaKishorM/laya](https://github.com/NandhaKishorM/laya)), runs in-process | none |
+| `:semif` | `semif` | Qwen3-0.6B causal LM, next-token scoring, runs in-process | none; `JEV_SEMIF_PROMPT_VERSION=direct-options-v2` recommended |
 | `:rizzoflow` | `rizzoflow` | llama.cpp + Spark-X2.5 GGUF via [Rizzo-AI-Academy/rizzo-flow](https://github.com/Rizzo-AI-Academy/rizzo-flow) — also usable as a general JEV integration point | run RizzoFlow itself separately (its own `rizzo serve`), then set `JEV_RIZZOFLOW_URL` |
 
 ```bash
-# semif (default) — nothing else to set
+# laya (default) — nothing else to set
 docker run -p 8000:8000 ghcr.io/giskardb/jev-agentbridge:latest
 
-# laya — dependencies baked into the image, no env var needed
-docker run -p 8000:8000 ghcr.io/giskardb/jev-agentbridge:laya
+# semif — with the better-scoring v2 prompt
+docker run -p 8000:8000 -e JEV_SEMIF_PROMPT_VERSION=direct-options-v2 \
+  ghcr.io/giskardb/jev-agentbridge:semif
 
 # rizzoflow — point at a RizzoFlow server you started separately (see their README)
 # Works as a general JEV client too: replace the server URL and it will talk to any
 # RizzoFlow-compatible backend you run yourself.
-docker run -p 8000:8000 ghcr.io/giskardb/jev-agentbridge:rizzoflow \
-  -e JEV_RIZZOFLOW_URL=http://host.docker.internal:8017
+docker run -p 8000:8000 -e JEV_RIZZOFLOW_URL=http://host.docker.internal:8017 \
+  ghcr.io/giskardb/jev-agentbridge:rizzoflow
 ```
 
-Adding a fourth backend is a new `DecisionEngine` implementation plus one line in
-`engine/registry.py`; see [docs/architecture.md](docs/architecture.md#swapping-engines).
+Adding a fourth backend is a new `DecisionAdapter` in `adapters/<name>/` plus one line in
+`adapters/registry.py`; see [docs/architecture.md](docs/architecture.md#adding-a-new-engine).
 
 ### How they compare
+
+**Laya is the default because it was both more accurate and faster on CPU.** Accuracy was
+measured with `jev-eval` on the 12-row samples in `examples/eval/`. That is indicative only:
+measure your own decisions.
+
+| Accuracy (12-row samples) | laya (English) | laya (multilingual) | semif prompt v1 | semif prompt v2 |
+|---|---|---|---|---|
+| English sample | **83.3%** | 75.0% | 41.7% | 75.0% |
+| Italian sample | **75.0%** | 75.0% | 41.7% | 66.7% |
+| p50 latency via API | ~350ms | ~170ms | ~530ms | ~530ms |
+
+For non-English traffic, try `JEV_LAYA_SUBFOLDER=multilingual`: same accuracy on the Italian
+sample at half the latency. Details in [docs/performance.md](docs/performance.md#accuracy-and-threshold).
+
+Latency-only benchmark from an earlier release:
 
 Laya's own published benchmarks (GPU, third-party numbers for "Jev") claim ~7.8x lower latency and
 better calibration than a Jev-style causal-LM engine, but lose badly past ~50 options. Nobody had
@@ -165,11 +199,17 @@ curl -X POST http://localhost:8000/v1/decide \
   "probabilities": {"retry": 0.81, "abort": 0.19},
   "selected_probability": 0.81,
   "accepted": true,
-  "metadata": {"engine": "semif", "mode": "direct", "model": "Qwen/Qwen3-0.6B", "latency_ms": 210.4}
+  "threshold": 0.6,
+  "metadata": {"engine": "semif", "model": "Qwen/Qwen3-0.6B", "model_revision": "main",
+               "mode": "direct", "latency_ms": 453.6, "input_tokens": 65}
 }
 ```
 
-*(Note: `engine` in the metadata reflects the image you ran — `semif` is the default.)*
+Add `"min_selected_probability": 0.9` to the request to use a stricter threshold for this call only.
+
+*(Note: `engine` in the metadata reflects the image you ran — `laya` is the default since 0.4.0.
+The example above came from the `:semif` image; laya reports `engine_details` with its own
+`choice`/`confidence` and no `input_tokens`.)*
 
 Full request/response reference: [docs/api.md](docs/api.md). Architecture details: [docs/architecture.md](docs/architecture.md).
 
@@ -194,6 +234,16 @@ result = client.decide(
     ],
 )
 print(result["decision"]["id"])
+
+# Gate pattern: JEV if confident, otherwise your LLM (also used if JEV is down)
+outcome = client.decide_or_fallback(
+    state="Deployment failed",
+    question="What should happen next?",
+    options=[{"id": "retry", "description": "Retry"}, {"id": "abort", "description": "Abort"}],
+    min_selected_probability=0.85,
+    fallback=lambda request: ask_llm(request),  # returns an option id
+)
+print(outcome.decision_id, outcome.source)  # source: "jev" or "fallback"
 ```
 
 ### TypeScript
@@ -215,11 +265,38 @@ const result = await client.decide({
   ],
 });
 console.log(result.decision.id);
+
+// Gate pattern
+const outcome = await client.decideOrFallback(
+  { state: "Deployment failed", question: "What should happen next?", options, min_selected_probability: 0.85 },
+  async (request) => askLlm(request), // returns an option id
+);
+console.log(outcome.decisionId, outcome.source); // "jev" | "fallback"
 ```
+
+### Choosing the threshold: `jev-eval`
+
+```bash
+jev-eval --dataset my-decisions.jsonl --url http://localhost:8000 --target-accuracy 0.97
+```
+
+Runs a labelled JSONL dataset through the running Bridge (any engine). For each threshold it
+prints coverage (share of decisions JEV answers alone) and accuracy on those decisions, then
+recommends a threshold. See [docs/performance.md](docs/performance.md#accuracy-and-threshold)
+for measured runs. Measure before you trust it: on the 12-row samples the default engine
+(laya) was right 83.3% of the time in English and 75% in Italian.
 
 No SDK needed either — it's one HTTP call, so any language works.
 
 ## Integrating with your agent
+
+**Recommended: call it from your orchestrator code as a gate before the LLM** (model routing,
+intent triage, guardrails, retry/abort...). Examples for Node, Python and Java are in
+[docs/integration.md](docs/integration.md).
+
+The integrations below expose `jev_decide` as a *tool the LLM calls*. This works, but it does
+not reduce LLM cost. The LLM is already running when it emits the call, and it needs another
+turn to read the result.
 
 ### OpenCode (built-in, verified against a real OpenCode agent)
 
@@ -343,13 +420,13 @@ it, forward the input to `POST /v1/decide` and return the JSON result as the too
 
 Image tags:
 ```bash
-# Default (semif)
+# Default (laya) — :latest and :laya are the same image
 docker pull ghcr.io/giskardb/jev-agentbridge:latest
 docker run -p 8000:8000 ghcr.io/giskardb/jev-agentbridge:latest
 
-# Laya variant (engine baked in)
-docker pull ghcr.io/giskardb/jev-agentbridge:laya
-docker run -p 8000:8000 ghcr.io/giskardb/jev-agentbridge:laya
+# semif variant (engine baked in)
+docker pull ghcr.io/giskardb/jev-agentbridge:semif
+docker run -p 8000:8000 ghcr.io/giskardb/jev-agentbridge:semif
 
 # RizzoFlow variant (general JEV integration point)
 docker pull ghcr.io/giskardb/jev-agentbridge:rizzoflow

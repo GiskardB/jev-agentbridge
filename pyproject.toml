@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "jev-cpu-agentbridge"
-version = "0.3.0"
-description = "JEV-CPU-AgentBridge — Local decision gateway for AI agents using CPU-first inference"
+version = "0.4.0"
+description = "JEV-CPU-AgentBridge — standard decision REST API over pluggable local CPU engines"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.110.0",
@@ -14,6 +14,8 @@ dependencies = [
     "transformers>=4.45.0",
     "torch>=2.5.0",
     "python-dotenv>=1.0.0",
+    # laya is the default engine since 0.4.0, so it is a core dependency now.
+    "laya>=0.3.0",
 ]
 
 [project.optional-dependencies]
@@ -23,12 +25,12 @@ dev = [
     "mypy>=1.10.0",
     "pytest-xdist>=3.0.0",
 ]
-laya = [
-    "laya>=0.3.0",
-]
+# Kept so `pip install jev-cpu-agentbridge[laya]` keeps working; laya is now a core dependency.
+laya = []
 
 [project.scripts]
 jev-decide = "jev_cpu_agentbridge.main:main"
+jev-eval = "jev_cpu_agentbridge.evaluation:main"
 
 [tool.uv.sources]
 torch = { index = "pytorch-cpu" }

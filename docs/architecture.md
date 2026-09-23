@@ -1,87 +1,137 @@
 # Architecture
 
+JEV-CPU-AgentBridge is a **standard decision REST API** with **pluggable engine adapters**
+behind it (ports & adapters). Clients only ever see the v1 contract; which JEV-style engine
+scores the options is an implementation detail chosen at deploy time.
+
 ```mermaid
 flowchart TB
-    Agent["<b>AI Agent</b><br/>reasoning · orchestration · planning<br/>tool execution · generative LLM · fallback decisions"]
-    Bridge["<b>JEV-CPU-AgentBridge</b><br/>structured decision evaluation · probability calculation · threshold policy<br/><i>NO external LLM · NO orchestration · NO fallback</i>"]
-    Registry["Engine registry<br/><code>JEV_ENGINE</code> (baked into image tag)"]
-    SemIf["<b>SemIfEngine</b><br/>Qwen3-0.6B (CPU)<br/>next-token-logit scoring<br/>in-process"]
-    Laya["<b>LayaEngine</b><br/>Laya encoders (CPU)<br/>non-autoregressive scoring<br/>in-process"]
-    Rizzo["<b>RizzoFlowEngine</b><br/>HTTP client only<br/>calls a separate RizzoFlow server"]
+    Client["Orchestrator / agent / SDK"]
+    subgraph Bridge["JEV-CPU-AgentBridge"]
+        API["<b>api/</b><br/>v1 REST contract · OpenAPI<br/>one error envelope"]
+        Service["<b>core/service.py</b> DecisionService<br/>validation · argmax · threshold<br/>timing · metadata · locking"]
+        Port["<b>core/ports.py</b><br/>DecisionAdapter protocol"]
+        Registry["<b>adapters/registry.py</b><br/>JEV_ENGINE → adapter"]
+    end
+    SemIf["<b>semif</b><br/>Qwen3-0.6B, in-process"]
+    Laya["<b>laya</b><br/>Laya encoders, in-process"]
+    Rizzo["<b>rizzoflow</b><br/>HTTP client"]
+    RizzoServer["RizzoFlow server<br/>rizzo serve"]
 
-    Agent -- "structured decision request" --> Bridge
-    Bridge --> Registry
-    Registry -- "image tag / JEV_ENGINE=semif (default)" --> SemIf
-    Registry -- "image tag / JEV_ENGINE=laya (optional)" --> Laya
-    Registry -- "image tag / JEV_ENGINE=rizzoflow (optional)" --> Rizzo
-    Rizzo -. "POST /v1/decisions" .-> RizzoServer["RizzoFlow server<br/>llama.cpp + Spark-X2.5 GGUF<br/>run separately: rizzo serve"]
+    Client -- "POST /v1/decide" --> API
+    API --> Service
+    Service --> Port
+    Registry -. "builds at startup" .-> Port
+    Port --> SemIf
+    Port --> Laya
+    Port --> Rizzo
+    Rizzo -- "POST /v1/decisions" --> RizzoServer
 ```
 
-## Sequence diagram
+## Layers and responsibilities
+
+| Layer | Package | Owns | Knows about engines? |
+|---|---|---|---|
+| REST contract | `api/` | Request/response schemas (`schemas.py`), routes, error envelope, OpenAPI | No |
+| Domain + policy | `core/` | `Option`, `Decision`, `Scores`, `DecisionResult`; validation, argmax, acceptance threshold, timing, standard metadata, domain errors | No |
+| Port | `core/ports.py` | `DecisionAdapter` protocol + `EngineInfo` | Defines the contract |
+| Adapters | `adapters/<name>/` | Scoring only: turn a `Decision` into one probability per option id; own config from own env vars | Each knows only itself |
+| Composition | `adapters/registry.py`, `main.py` | Pick the adapter from `JEV_ENGINE`, build the app | Only the registry |
+
+The key rule: **an adapter scores, the service decides.** Adapters never apply the threshold,
+never choose the winner and never shape the response. That is what keeps behaviour identical
+across engines. Before 0.4.0, for example, semif returned probabilities keyed by letters
+`A`/`B` while laya and rizzoflow used option ids. Each engine also re-implemented the
+threshold, and the per-request threshold never reached any of them.
+
+## Request flow
 
 ```mermaid
 sequenceDiagram
-    participant Agent as AI Agent
-    participant Bridge as JEV-CPU-AgentBridge (FastAPI)
-    participant Engine as DecisionEngine (semif, laya, or rizzoflow)
-    participant Model as Model (CPU)
+    participant C as Client
+    participant A as api/routes.py
+    participant S as DecisionService
+    participant P as Adapter (semif / laya / rizzoflow)
 
-    Agent->>Bridge: POST /v1/decide<br/>{state, question, options[2..16]}
-    Bridge->>Engine: decide(state, question, options)
-    Engine->>Engine: build engine-specific prompt/question<br/>(SemIf letters A..P, Laya criteria dict, or RizzoFlow criteria dict)
-    Engine->>Model: single forward pass — no generate(), no sampling
-    Model-->>Engine: logits
-    Engine->>Engine: probability distribution over options only
-    Engine-->>Bridge: DecisionResult(decision, probabilities, accepted)
-    Bridge-->>Agent: 200 OK { decision, probabilities, selected_probability, accepted }
-
-    Note over Agent,Model: decide_batch() scores several decisions against one shared state<br/>in fewer forward passes than calling decide() N times
+    C->>A: POST /v1/decide {state, question, options, min_selected_probability?}
+    A->>A: schema validation (2-16 options, threshold 0..1) → 422 on error
+    A->>S: decide(state, Decision)  [thread pool, event loop stays free]
+    S->>S: validate (unique ids, counts, threshold) → 400 on error
+    S->>P: score(state, decision)  [serialized if adapter not thread-safe]
+    P-->>S: Scores{probabilities by option id, input_tokens?, details}
+    S->>S: argmax · accepted = p ≥ threshold · metadata
+    S-->>A: DecisionResult
+    A-->>C: 200 {decision, probabilities, selected_probability, accepted, threshold, metadata}
 ```
+
+`/v1/decide/batch` follows the same path through `score_batch()`. Adapters with a cheaper shared
+path (`native_batch=True`) use it: semif prefills the shared state once and reuses the KV cache.
+Laya and rizzoflow send one request with all the questions.
+
+## The adapter port
+
+```python
+class DecisionAdapter(Protocol):
+    def info(self) -> EngineInfo: ...          # name, model, revision, native_batch, thread_safe
+    def is_ready(self) -> bool: ...
+    def score(self, *, state, decision: Decision) -> Scores: ...
+    def score_batch(self, *, state, decisions: Sequence[Decision]) -> list[Scores]: ...
+```
+
+`Scores.probabilities` must contain every option id of the decision. Anything adapter-specific
+(prompt hash, backend status, token counts) goes in `Scores.details`. It is returned to clients
+under `metadata.engine_details` without being interpreted.
+
+Adapters raise domain errors from `core/errors.py` when they can classify the failure:
+`InputTooLargeError` (413) and `EngineUnavailableError` (503, e.g. RizzoFlow unreachable). Any
+other exception becomes `ENGINE_ERROR` (500). Every error uses the same envelope.
+
+`thread_safe=False` makes the service serialize calls to that adapter. Routes run in FastAPI's
+thread pool, so a slow CPU decision no longer blocks `/health`, `/ready` or other requests.
+
+## Adding a new engine
+
+1. Create `adapters/<name>/adapter.py` with a config dataclass (`from_env()` reading its own
+   `JEV_<NAME>_*` variables) and a class implementing `DecisionAdapter`.
+2. Add one factory to `_ADAPTERS` in `adapters/registry.py`.
+3. Add tests with a fake backend (see `tests/test_laya_adapter.py`,
+   `tests/test_rizzoflow_adapter.py`). `tests/test_registry.py` checks that every adapter
+   satisfies the port.
+4. If it needs extra Python dependencies, add an extra in `pyproject.toml` and a matrix entry
+   in `.github/workflows/release.yml` so it gets its own image tag.
+
+Nothing in `api/`, `core/`, the SDKs or client code changes.
+
+## Engines and image tags
+
+| Image tag | `JEV_ENGINE` | Adapter | Engine-specific settings |
+|---|---|---|---|
+| `:latest` / `:laya` | `laya` (default) | Laya encoder, non-autoregressive | `JEV_LAYA_MODEL_NAME`, `JEV_LAYA_SUBFOLDER` (`multilingual` for non-English), `JEV_MODEL_DEVICE` |
+| `:semif` | `semif` | Causal LM, next-token scoring of option letters A–P | `JEV_MODEL_NAME`, `JEV_MODEL_REVISION`, `JEV_MODEL_DEVICE`, `JEV_MAX_INPUT_TOKENS`, `JEV_SEMIF_PROMPT_VERSION` (`direct-options-v1` default, `direct-options-v2` recommended) |
+| `:rizzoflow` | `rizzoflow` | HTTP client to a separately-run RizzoFlow server | `JEV_RIZZOFLOW_URL`, `JEV_RIZZOFLOW_TIMEOUT_SECONDS` |
+
+Service-wide settings: `JEV_ENGINE`, `JEV_MIN_SELECTED_PROBABILITY` (default threshold, 0.60),
+`JEV_HOST`, `JEV_PORT`.
+
+## Where it sits in an agent
+
+The Bridge is meant to be called from the orchestrator's code as a **gate in front of the
+LLM**. It is not meant as a tool the LLM calls: by the time an LLM emits a tool call, its cost
+has already been paid.
+
+```mermaid
+flowchart LR
+    In["Request / event"] --> J["JEV /v1/decide"]
+    J -->|"accepted=true"| Act["Act on JEV's answer"]
+    J -->|"accepted=false or down"| L["LLM fallback"]
+    L --> Act
+```
+
+The SDKs implement this as `decide_or_fallback()` / `decideOrFallback()`. Pick the threshold per
+decision type with `jev-eval` (see [performance.md](performance.md#accuracy-and-threshold)).
 
 ## Separation of concerns
 
-The Bridge answers: *"Given this state, criterion and these possible actions, which option receives the highest score from the local decision model?"*
-
-It does NOT answer: *"What should the entire agent do?"*
-
-## Components
-
-- **API layer**: FastAPI routes for `/v1/decide`, `/v1/decide/batch`, `/health`, `/ready`, `/v1/info`
-- **Engine registry** (`engine/registry.py`): picks a `DecisionEngine` implementation from `JEV_ENGINE`
-- **Decision engines**: pluggable implementations of the `DecisionEngine` protocol
-  - `SemIfEngine` (default, `JEV_ENGINE=semif`): next-token-logit scoring on a causal LM (Qwen3-0.6B), in-process
-  - `LayaEngine` (`JEV_ENGINE=laya`, optional): non-autoregressive scoring via the [Laya](https://github.com/NandhaKishorM/laya) encoder models, in-process
-  - `RizzoFlowEngine` (`JEV_ENGINE=rizzoflow`, optional): thin HTTP client (stdlib only, no extra
-    dependency) to a separately-run [RizzoFlow](https://github.com/Rizzo-AI-Academy/rizzo-flow)
-    server (`rizzo serve`), which does llama.cpp + Spark-X2.5 GGUF scoring on its own
-- **Prompt builder**: Constructs SemIf-style prompts (used by `SemIfEngine` only)
-- **Tokenizer slots**: Validates A-P token mapping (used by `SemIfEngine` only)
-- **Model loader**: Loads Qwen3-0.6B with CPU inference (used by `SemIfEngine` only)
-
-## Swapping engines
-
-The API contract (`/v1/decide`, `/v1/decide/batch`, response shape) never changes when you switch
-engines — only `engine/registry.py` needs a new entry. Published images bake the engine into the
-image itself, so the tag you pull determines the runtime engine:
-
-| Image tag | Engine | Notes |
-|---|---|---|
-| `:latest` / `:semif` | `semif` (default) | Qwen3-0.6B causal LM, next-token scoring |
-| `:laya` | `laya` | Laya encoder models — dependencies baked in |
-| `:rizzoflow` | `rizzoflow` | HTTP client to a separately-run RizzoFlow server; also usable as a general JEV integration point |
-
-```bash
-docker run -p 8000:8000 ghcr.io/giskardb/jev-agentbridge:latest   # semif
-docker run -p 8000:8000 ghcr.io/giskardb/jev-agentbridge:laya     # laya
-docker run -p 8000:8000 ghcr.io/giskardb/jev-agentbridge:rizzoflow # rizzoflow
-```
-
-You can still override the baked-in engine at runtime with `-e JEV_ENGINE=...` if you need to.
-For `rizzoflow`, set `JEV_RIZZOFLOW_URL` (default `http://localhost:8017`) to point at the server
-you run separately.
-
-Adding a fourth backend means writing a `DecisionEngine` implementation and registering it in
-`_ENGINES` in `engine/registry.py` — nothing in `api/` or the SDKs changes. If it needs its own
-Python dependencies (like Laya), add a matching extra in `pyproject.toml` and a matrix entry in
-`.github/workflows/release.yml` so it gets its own image tag; if it's just an HTTP client (like
-RizzoFlow), it doesn't need either.
+The Bridge answers: *"Given this state, criterion and these options, which option scores highest,
+and is it confident enough?"* It does not orchestrate, generate text, or resolve its own
+uncertainty. `accepted=false` hands the decision back to the caller.

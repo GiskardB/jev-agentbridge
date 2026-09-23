@@ -71,3 +71,43 @@ Note: as of this writing, `rizzo download`'s tar extraction (`TarFile.extract(..
 requires Python ≥3.12, even though the project's own `pyproject.toml` declares `requires-python =
 ">=3.11"`; it fails on 3.11. Unrelated to this Bridge (RizzoFlow runs as its own separate process),
 but worth knowing before you hit it yourself.
+
+## Accuracy and threshold
+
+Latency says nothing about whether an engine is right. When JEV gates an LLM, the question is:
+*at which threshold do decisions with `accepted=true` match what the LLM would have decided, and
+what share of traffic does that leave to JEV?* `jev-eval` measures this against any running
+Bridge, for any engine:
+
+```bash
+jev-eval --dataset examples/eval/sample.jsonl --url http://localhost:8000 --target-accuracy 0.97
+```
+
+The dataset is JSONL, one labelled decision per line (`state`, `question`, `options`,
+`expected`). For each threshold from 0.50 to 0.95 the tool prints two numbers. *Coverage* is the
+share of decisions JEV would answer alone. *Accuracy on accepted* is how often those answers are
+right. It then recommends the lowest threshold that reaches the target, which is the one with
+the most coverage. Use 200–500 real examples of one decision type; `examples/eval/sample.jsonl`
+(12 rows) only shows the format.
+
+### Measured: all in-process engines on the samples
+
+One run per configuration, CPU, through the Bridge API (`jev-eval`), on
+`examples/eval/sample.jsonl` (English) and `examples/eval/sample_it.jsonl` (the same 12 decisions
+in Italian):
+
+| Engine / config | Accuracy EN | Accuracy IT | p50 latency |
+|---|---|---|---|
+| laya, English model (default) | **83.3%** | **75.0%** | ~350ms |
+| laya, `JEV_LAYA_SUBFOLDER=multilingual` | 75.0% | 75.0% | ~170ms |
+| semif, `direct-options-v1` prompt (default) | 41.7% | 41.7% | ~530ms |
+| semif, `direct-options-v2` prompt | 75.0% | 66.7% | ~530ms |
+
+This is why laya became the default engine in 0.4.0. semif v1 is close to chance; its prompt
+ends right after the option list, so the next token is rarely the letter. v2 appends
+`"\n\nAnswer:"`. It stays opt-in (`JEV_SEMIF_PROMPT_VERSION=direct-options-v2`) until it is
+validated on a larger dataset. A chat-template variant was also tried (8/12 EN) and is not shipped.
+
+Twelve rows are far too few for a production threshold. Even laya accepted confident mistakes:
+it chose `retry` at p=0.946 when four identical failures in a row called for `rollback`. Build
+200–500 real examples per decision type and let `jev-eval` pick the threshold.

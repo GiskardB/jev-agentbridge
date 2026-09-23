@@ -15,10 +15,9 @@ jobs:
       matrix:
         # One image per engine. The engine is baked in via the Dockerfile's
         # JEV_ENGINE ENV (ENGINE build arg), so the image tag alone determines
-        # the runtime engine — no -e JEV_ENGINE needed. Only "laya" carries
-        # extra Python deps (ENGINE_EXTRA=laya); semif and rizzoflow are
-        # stdlib-only.
-        engine: ["semif", "laya", "rizzoflow"]
+        # the runtime engine — no -e JEV_ENGINE needed. laya is the default
+        # engine and gets :latest (plus :laya); the others get suffixed tags.
+        engine: ["laya", "semif", "rizzoflow"]
     steps:
       - uses: actions/checkout@v4
 
@@ -40,16 +39,15 @@ jobs:
           MAJOR_MINOR="${VERSION%.*}"
           ENGINE="${{ matrix.engine }}"
           SUFFIX=""
-          MOVING="latest"
-          if [ "$ENGINE" != "semif" ]; then
+          if [ "$ENGINE" != "laya" ]; then
             SUFFIX="-$ENGINE"
-            MOVING="$ENGINE"
           fi
           {
             echo "tags<<TAGEOF"
             echo "$BASE:${VERSION}${SUFFIX}"
             echo "$BASE:${MAJOR_MINOR}${SUFFIX}"
-            echo "$BASE:${MOVING}"
+            echo "$BASE:${ENGINE}"
+            if [ "$ENGINE" = "laya" ]; then echo "$BASE:latest"; fi
             echo "TAGEOF"
           } >> "$GITHUB_OUTPUT"
 
@@ -68,5 +66,4 @@ jobs:
           push: true
           build-args: |
             ENGINE=${{ matrix.engine }}
-            ENGINE_EXTRA=${{ matrix.engine == 'laya' && 'laya' || '' }}
           tags: ${{ steps.tags.outputs.tags }}

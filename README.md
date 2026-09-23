@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img alt="version" src="https://img.shields.io/badge/version-0.2.1-informational">
+  <img alt="version" src="https://img.shields.io/badge/version-0.3.0-informational">
   <img alt="python" src="https://img.shields.io/badge/python-3.11%2B-blue">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-green">
   <a href="https://github.com/GiskardB/jev-agentbridge/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/GiskardB/jev-agentbridge/actions/workflows/ci.yml/badge.svg"></a>
@@ -72,17 +72,37 @@ sequenceDiagram
 ## Pluggable engines
 
 The scoring backend is swappable with one environment variable — the API your agents call
-(`/v1/decide`, SDKs, integrations) never changes:
+(`/v1/decide`, SDKs, integrations) never changes. Pick the image tag that matches the engine you
+want; nothing to install or build yourself:
+
+| `JEV_ENGINE` | What it is | Image to pull | Extra setup |
+|---|---|---|---|
+| `semif` (default) | Qwen3-0.6B causal LM, next-token scoring, runs in-process | `ghcr.io/giskardb/jev-agentbridge:latest` | none |
+| `laya` | Non-autoregressive encoder models ([NandhaKishorM/laya](https://github.com/NandhaKishorM/laya)), runs in-process | `ghcr.io/giskardb/jev-agentbridge:laya` | none — the `:laya` image already has it |
+| `rizzoflow` | llama.cpp + Spark-X2.5 GGUF via [Rizzo-AI-Academy/rizzo-flow](https://github.com/Rizzo-AI-Academy/rizzo-flow) | same default image (zero extra deps — it's an HTTP client) | run RizzoFlow itself separately (its own `rizzo serve`), then set `JEV_RIZZOFLOW_URL` |
 
 ```bash
-JEV_ENGINE=semif   # default — Qwen3-0.6B causal LM, next-token scoring
-JEV_ENGINE=laya    # non-autoregressive encoder models (github.com/NandhaKishorM/laya)
-                    # pip install jev-cpu-agentbridge[laya]
+# semif (default) — nothing else to set
+docker run -p 8000:8000 ghcr.io/giskardb/jev-agentbridge:latest
+
+# laya — pull the variant image that already bundles its dependencies
+docker run -p 8000:8000 -e JEV_ENGINE=laya ghcr.io/giskardb/jev-agentbridge:laya
+
+# rizzoflow — point at a RizzoFlow server you started separately (see their README)
+docker run -p 8000:8000 -e JEV_ENGINE=rizzoflow \
+  -e JEV_RIZZOFLOW_URL=http://host.docker.internal:8017 \
+  ghcr.io/giskardb/jev-agentbridge:latest
 ```
+
+Adding a fourth backend is a new `DecisionEngine` implementation plus one line in
+`engine/registry.py`; see [docs/architecture.md](docs/architecture.md#swapping-engines).
+
+### How they compare
 
 Laya's own published benchmarks (GPU, third-party numbers for "Jev") claim ~7.8x lower latency and
 better calibration than a Jev-style causal-LM engine, but lose badly past ~50 options. Nobody had
-published a real **CPU** head-to-head — the case this project actually cares about — so we ran one:
+published a real **CPU** head-to-head between semif and laya — the case this project actually cares
+about — so we ran one:
 
 | Metric (CPU, warm cache) | semif (Qwen3-0.6B) | laya (English, 421M) |
 |---|---|---|
@@ -93,21 +113,36 @@ published a real **CPU** head-to-head — the case this project actually cares a
 Single machine (Intel i7-6700HQ, no GPU), single run — re-run `python -m benchmarks.run --engine
 semif` vs `--engine laya` on your own hardware before trusting this for a real decision. Full
 methodology and caveats: [docs/performance.md](docs/performance.md#measured-semif-vs-laya-cpu-warm-cache).
-Adding a third backend is a new `DecisionEngine` implementation plus one line in
-`engine/registry.py`; see [docs/architecture.md](docs/architecture.md#swapping-engines).
+
+RizzoFlow ships a genuinely different model family and size (quantized Spark-X2.5, 1.7B-4B GGUF via
+llama.cpp) at a different tradeoff point — it wasn't put through the same controlled benchmark, so
+it isn't in that table. It was, however, run and verified for real on CPU here: `rizzo serve
+--device cpu --size 1.7b --quant q4_k_m` answered our example decision correctly (`retry`, p=0.9966)
+through this Bridge's own `/v1/decide`. RizzoFlow's own README is upfront that they hadn't tried
+CPU-only before either ("not tried: we have no CPU number") — measure your own workload with
+`python -m benchmarks.run --engine rizzoflow` once RizzoFlow is running.
 
 ## Quick start
 
-Requires Docker.
+Requires Docker. Pulls the published image — nothing to build:
 
 ```bash
-docker compose up --build
+docker run -p 8000:8000 ghcr.io/giskardb/jev-agentbridge:latest
 ```
 
 ```bash
 curl http://localhost:8000/health
 # {"status":"ok"}
 ```
+
+<details>
+<summary>Prefer docker compose, or want to build from source instead?</summary>
+
+```bash
+docker compose up          # pulls ghcr.io/giskardb/jev-agentbridge:latest
+docker compose up --build  # builds from this checkout instead
+```
+</details>
 
 ### Your first decision
 

@@ -11,6 +11,12 @@ jobs:
     permissions:
       contents: read
       packages: write
+    strategy:
+      matrix:
+        # "" = default image (semif only). Add an entry here for each engine that needs its own
+        # dependencies baked in (see Dockerfile's ENGINE_EXTRA build arg). rizzoflow needs none
+        # (it's a plain HTTP client), so it doesn't get a variant.
+        extra: ["", "laya"]
     steps:
       - uses: actions/checkout@v4
 
@@ -24,6 +30,27 @@ jobs:
           fi
           echo "image=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
 
+      - name: Compute image tags for this variant
+        id: tags
+        run: |
+          BASE="${{ steps.registry.outputs.host }}/${{ steps.registry.outputs.image }}"
+          VERSION="${GITHUB_REF_NAME#v}"
+          MAJOR_MINOR="${VERSION%.*}"
+          EXTRA="${{ matrix.extra }}"
+          SUFFIX=""
+          MOVING="latest"
+          if [ -n "$EXTRA" ]; then
+            SUFFIX="-$EXTRA"
+            MOVING="$EXTRA"
+          fi
+          {
+            echo "tags<<TAGEOF"
+            echo "$BASE:${VERSION}${SUFFIX}"
+            echo "$BASE:${MAJOR_MINOR}${SUFFIX}"
+            echo "$BASE:${MOVING}"
+            echo "TAGEOF"
+          } >> "$GITHUB_OUTPUT"
+
       - uses: docker/setup-buildx-action@v3
 
       - name: Log in to the registry
@@ -33,18 +60,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: docker/metadata-action@v5
-        id: meta
-        with:
-          images: ${{ steps.registry.outputs.host }}/${{ steps.registry.outputs.image }}
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest
-
       - uses: docker/build-push-action@v6
         with:
           context: .
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            ENGINE_EXTRA=${{ matrix.extra }}
+          tags: ${{ steps.tags.outputs.tags }}

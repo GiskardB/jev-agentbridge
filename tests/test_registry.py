@@ -29,4 +29,4 @@ def test_create_engine_dispatches_and_marks_ready(monkeypatch: pytest.MonkeyPatc
 
 
 def test_known_engines_are_registered() -> None:
-    assert {"semif", "laya"} <= set(registry._ENGINES)
+    assert {"semif", "laya", "rizzoflow"} <= set(registry._ENGINES)

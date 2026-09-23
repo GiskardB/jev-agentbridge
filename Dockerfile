@@ -5,7 +5,10 @@ WORKDIR /app
 RUN pip install --no-cache-dir uv
 
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-dev
+# Build with --build-arg ENGINE_EXTRA=laya to bake in the Laya engine's dependencies
+# (the release pipeline publishes that as the :laya image tag). Default: semif only.
+ARG ENGINE_EXTRA=""
+RUN if [ -n "$ENGINE_EXTRA" ]; then uv sync --frozen --no-dev --extra "$ENGINE_EXTRA"; else uv sync --frozen --no-dev; fi
 
 COPY src/ ./src/
 COPY benchmarks/ ./benchmarks/

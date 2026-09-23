@@ -40,7 +40,7 @@ def create_router(
                 raise HTTPException(status_code=503, detail={"status": "not ready"})
         except (RuntimeError, LookupError):
             raise HTTPException(status_code=503, detail={"status": "not ready"})
-        model = settings.laya_model_name if settings.engine == "laya" else settings.model_name
+        model, _ = _engine_model_info(settings)
         return ReadyResponse(
             status="ready",
             model=model,
@@ -48,18 +48,14 @@ def create_router(
 
     @router.get("/v1/info", response_model=InfoResponse)
     async def info() -> InfoResponse:
-        model, revision = (
-            (settings.laya_model_name, settings.laya_subfolder or "main")
-            if settings.engine == "laya"
-            else (settings.model_name, settings.model_revision)
-        )
+        model, revision = _engine_model_info(settings)
         return InfoResponse(
             engine=settings.engine,
             model=model,
             revision=revision,
             supported_modes=["direct", "shared"],
             max_options=16,
-            version="0.2.1",
+            version="0.3.0",
         )
 
     @router.post("/v1/decide", response_model=DecideResponse)
@@ -113,6 +109,16 @@ def create_router(
         return BatchDecideResponse(decisions=[_to_response(r) for r in results])
 
     return router
+
+
+def _engine_model_info(settings: Settings) -> tuple[str, str]:
+    """Return (model, revision) to report for the active engine (JEV_ENGINE)."""
+
+    if settings.engine == "laya":
+        return settings.laya_model_name, settings.laya_subfolder or "main"
+    if settings.engine == "rizzoflow":
+        return settings.rizzoflow_url, "n/a"
+    return settings.model_name, settings.model_revision
 
 
 def _to_domain_options(options: list[dict]) -> list:

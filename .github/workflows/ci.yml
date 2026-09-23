@@ -26,6 +26,9 @@ jobs:
 
   docker-build:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        extra: ["", "laya"]
     steps:
       - uses: actions/checkout@v4
 
@@ -36,6 +39,8 @@ jobs:
         with:
           context: .
           push: false
+          build-args: |
+            ENGINE_EXTRA=${{ matrix.extra }}
 
   opencode-plugin:
     runs-on: ubuntu-latest

@@ -37,9 +37,19 @@ def _load_laya(settings: Settings) -> DecisionEngine:
     )
 
 
+def _load_rizzoflow(settings: Settings) -> DecisionEngine:
+    from .rizzoflow import RizzoFlowEngine
+
+    return RizzoFlowEngine(
+        base_url=settings.rizzoflow_url,
+        min_selected_probability=settings.min_selected_probability,
+    )
+
+
 _ENGINES: dict[str, Callable[[Settings], DecisionEngine]] = {
     "semif": _load_semif,
     "laya": _load_laya,
+    "rizzoflow": _load_rizzoflow,
 }
 
 

@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.3.0
+
+- Add: `RizzoFlowEngine` (`JEV_ENGINE=rizzoflow`) — a thin, stdlib-only HTTP client to a separately-run
+  [RizzoFlow](https://github.com/Rizzo-AI-Academy/rizzo-flow) server (llama.cpp + Spark-X2.5 GGUF).
+  Verified end-to-end on CPU against a real `rizzo serve` instance, both directly and through this
+  Bridge's own `/v1/decide` and `/v1/decide/batch`.
+- Add: Dockerfile `ENGINE_EXTRA` build arg; the release pipeline now publishes a `:laya` image
+  variant (dependencies baked in) alongside the default `:latest` (semif only, unchanged) — no
+  `pip install`/build needed to switch engines, just pull the matching tag
+- Fix: README/Quick start built from source (`docker compose up --build`) instead of pulling the
+  published image; switched to `docker run ghcr.io/giskardb/jev-agentbridge:latest` as the primary
+  path, build-from-source kept as a documented alternative
+- Fix: `docker-compose.yml` (root) had the same too-short `HEALTHCHECK start_period` as the
+  Dockerfile fix in 0.2.1, missed at the time; also now pulls the published image by default
+
 ## 0.2.1
 
 - Fix: the OpenCode plugin's `jev_decide` tool was never actually registered — it exported

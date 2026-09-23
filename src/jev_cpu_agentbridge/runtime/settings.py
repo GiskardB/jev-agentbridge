@@ -23,6 +23,7 @@ class Settings:
     hf_home: str | None = None
     laya_model_name: str = "convaiinnovations/laya"
     laya_subfolder: str | None = None
+    rizzoflow_url: str = "http://localhost:8017"
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -42,4 +43,5 @@ class Settings:
             hf_home=os.getenv("HF_HOME"),
             laya_model_name=os.getenv("JEV_LAYA_MODEL_NAME", "convaiinnovations/laya"),
             laya_subfolder=os.getenv("JEV_LAYA_SUBFOLDER"),
+            rizzoflow_url=os.getenv("JEV_RIZZOFLOW_URL", "http://localhost:8017"),
         )

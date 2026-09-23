@@ -27,3 +27,5 @@ build/
 
 # secrets
 *.env
+# Model routing evaluation output (examples/eval/model_routing/run_eval.py)
+examples/eval/model_routing/results/

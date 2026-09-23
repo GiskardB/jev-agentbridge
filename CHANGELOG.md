@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Add: `examples/eval/model_routing/`, a model-routing evaluation (small / medium / large LLM
+  tier). It has 240 hand-labelled requests (120 IT, 120 EN, balanced), labelling rules, and
+  `run_eval.py` (stdlib only). The runner evaluates any running Bridge, scores external
+  predictions such as an LLM baseline, and writes a comparison `REPORT.md`. `INSTRUCTIONS.md`
+  gives step-by-step commands another agent can execute with the published Docker images.
+  First run: laya English 59.6% (EN 70.0%, IT 49.2%), 12.1% coverage at 95% accuracy; laya
+  multilingual 34.6%.
 - Add: the OpenCode plugin is now published to npm as
   [`opencode-jev-agentbridge`](https://www.npmjs.com/package/opencode-jev-agentbridge) —
   `{"plugin": ["opencode-jev-agentbridge"]}` in `opencode.json` is now enough, no local clone

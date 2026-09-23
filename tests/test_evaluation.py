@@ -51,3 +51,14 @@ def test_summarize_no_threshold_reaches_target() -> None:
 
 def test_italian_sample_dataset_is_valid() -> None:
     assert len(load_dataset(str(SAMPLE.with_name("sample_it.jsonl")))) == 12
+
+
+def test_model_routing_dataset_is_valid_and_balanced() -> None:
+    from collections import Counter
+
+    path = SAMPLE.parent / "model_routing" / "model_routing.jsonl"
+    rows = load_dataset(str(path))
+    assert len(rows) == 240
+    assert len({row["id"] for row in rows}) == 240
+    assert len({row["state"] for row in rows}) == 240
+    assert set(Counter((row["lang"], row["expected"]) for row in rows).values()) == {40}

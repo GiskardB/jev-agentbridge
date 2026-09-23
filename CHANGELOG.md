@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.3.1
+
+- Change: Docker images now bake in the engine selection (`JEV_ENGINE` is set via the Dockerfile's
+  `ENGINE` build arg / `ENV`). Pulling `:laya`, `:semif`, or `:rizzoflow` no longer requires
+  `-e JEV_ENGINE=...` — the tag alone determines the runtime engine. Override at runtime with
+  `-e JEV_ENGINE=...` if needed.
+- Add: `:rizzoflow` image variant — a general JEV integration point that talks to any
+  RizzoFlow-compatible server you run yourself (set `JEV_RIZZOFLOW_URL`).
+- Change: release and CI workflows now build all three engine variants (`semif`, `laya`,
+  `rizzoflow`) instead of `["", "laya"]`; only `laya` still carries extra Python deps
+  (`ENGINE_EXTRA=laya`).
+- Docs: rewrote README's "What is this" and Pluggable engines section to match the new tag
+  convention; updated `docs/architecture.md`, `docs/integration.md`, `docs/api.md`, and
+  `docker-compose.yml`.
+
+## 0.3.0
+
+- Add: `RizzoFlowEngine` (`JEV_ENGINE=rizzoflow`) — a thin, stdlib-only HTTP client to a separately-run
+  [RizzoFlow](https://github.com/Rizzo-AI-Academy/rizzo-flow) server (llama.cpp + Spark-X2.5 GGUF).
+  Verified end-to-end on CPU against a real `rizzo serve` instance, both directly and through this
+  Bridge's own `/v1/decide` and `/v1/decide/batch`.
+- Add: Dockerfile `ENGINE_EXTRA` build arg; the release pipeline now publishes a `:laya` image
+  variant (dependencies baked in) alongside the default `:latest` (semif only, unchanged) — no
+  `pip install`/build needed to switch engines, just pull the matching tag
+- Fix: README/Quick start built from source (`docker compose up --build`) instead of pulling the
+  published image; switched to `docker run ghcr.io/giskardb/jev-agentbridge:latest` as the primary
+  path, build-from-source kept as a documented alternative
+- Fix: `docker-compose.yml` (root) had the same too-short `HEALTHCHECK start_period` as the
+  Dockerfile fix in 0.2.1, missed at the time; also now pulls the published image by default
+
 ## 0.2.1
 
 - Fix: the OpenCode plugin's `jev_decide` tool was never actually registered — it exported

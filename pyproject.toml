@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "jev-cpu-agentbridge"
-version = "0.2.1"
+version = "0.3.0"
 description = "JEV-CPU-AgentBridge — Local decision gateway for AI agents using CPU-first inference"
 requires-python = ">=3.11"
 dependencies = [

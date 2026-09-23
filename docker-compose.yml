@@ -1,5 +1,8 @@
 services:
   agentbridge:
+    # `docker compose up` pulls this image — no build needed. Use `docker compose up --build`
+    # to build from source instead (e.g. while developing).
+    image: ghcr.io/giskardb/jev-agentbridge:latest
     build: .
     ports:
       - "8000:8000"
@@ -8,12 +11,14 @@ services:
     environment:
       - JEV_HOST=0.0.0.0
       - JEV_PORT=8000
+      # - JEV_RIZZOFLOW_URL=http://host.docker.internal:8017  # for :rizzoflow image,
+      #   point at a separate RizzoFlow server (default: http://localhost:8017)
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 5s
+      start_period: 90s
 
 volumes:
   huggingface-cache:

@@ -43,5 +43,6 @@ Model readiness. Returns `{"status": "ready", "model": "..."}` after initializat
 
 ## `GET /v1/info`
 
-Reflects the active engine (`JEV_ENGINE`) and its model — see
-[docs/architecture.md](architecture.md#swapping-engines).
+Reflects the engine baked into the image (set via `JEV_ENGINE` at build time — see
+[docs/architecture.md](architecture.md#swapping-engines)) and its model. The baked-in value
+can be overridden at runtime with `-e JEV_ENGINE=...`.

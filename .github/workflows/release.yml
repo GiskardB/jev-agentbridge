@@ -11,6 +11,14 @@ jobs:
     permissions:
       contents: read
       packages: write
+    strategy:
+      matrix:
+        # One image per engine. The engine is baked in via the Dockerfile's
+        # JEV_ENGINE ENV (ENGINE build arg), so the image tag alone determines
+        # the runtime engine — no -e JEV_ENGINE needed. Only "laya" carries
+        # extra Python deps (ENGINE_EXTRA=laya); semif and rizzoflow are
+        # stdlib-only.
+        engine: ["semif", "laya", "rizzoflow"]
     steps:
       - uses: actions/checkout@v4
 
@@ -24,6 +32,27 @@ jobs:
           fi
           echo "image=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
 
+      - name: Compute image tags for this variant
+        id: tags
+        run: |
+          BASE="${{ steps.registry.outputs.host }}/${{ steps.registry.outputs.image }}"
+          VERSION="${GITHUB_REF_NAME#v}"
+          MAJOR_MINOR="${VERSION%.*}"
+          ENGINE="${{ matrix.engine }}"
+          SUFFIX=""
+          MOVING="latest"
+          if [ "$ENGINE" != "semif" ]; then
+            SUFFIX="-$ENGINE"
+            MOVING="$ENGINE"
+          fi
+          {
+            echo "tags<<TAGEOF"
+            echo "$BASE:${VERSION}${SUFFIX}"
+            echo "$BASE:${MAJOR_MINOR}${SUFFIX}"
+            echo "$BASE:${MOVING}"
+            echo "TAGEOF"
+          } >> "$GITHUB_OUTPUT"
+
       - uses: docker/setup-buildx-action@v3
 
       - name: Log in to the registry
@@ -33,18 +62,11 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: docker/metadata-action@v5
-        id: meta
-        with:
-          images: ${{ steps.registry.outputs.host }}/${{ steps.registry.outputs.image }}
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest
-
       - uses: docker/build-push-action@v6
         with:
           context: .
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            ENGINE=${{ matrix.engine }}
+            ENGINE_EXTRA=${{ matrix.engine == 'laya' && 'laya' || '' }}
+          tags: ${{ steps.tags.outputs.tags }}

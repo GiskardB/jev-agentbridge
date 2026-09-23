@@ -223,22 +223,23 @@ No SDK needed either — it's one HTTP call, so any language works.
 
 ### OpenCode (built-in, verified against a real OpenCode agent)
 
-A plugin + skill are included in [integrations/opencode/](integrations/opencode/).
+A plugin + skill are included in [integrations/opencode/](integrations/opencode/), and published to
+npm as [`opencode-jev-agentbridge`](https://www.npmjs.com/package/opencode-jev-agentbridge).
 
-1. Install the plugin's own dependency:
-   ```bash
-   cd integrations/opencode && npm install
+1. Register the plugin in `opencode.json`:
+   ```json
+   { "plugin": ["opencode-jev-agentbridge"] }
    ```
 2. Point it at your running Bridge instance:
    ```bash
    export JEV_CPU_AGENTBRIDGE_URL=http://localhost:8000
    ```
-3. Register it in `opencode.json`:
-   ```json
-   { "plugin": ["./integrations/opencode/plugin/jev-cpu-agentbridge.mjs"] }
-   ```
-4. The agent gets a `jev_decide` tool it can call directly — see
+3. Enable the skill so the agent knows *when* to reach for the tool without being told explicitly
+   — see the "Enable the skill" step in
    [integrations/opencode/README.md](integrations/opencode/README.md).
+4. The agent gets a `jev_decide` tool it can call directly — see
+   [integrations/opencode/README.md](integrations/opencode/README.md) for the full request/response
+   shape and for installing from this repo instead of npm.
 
 This was verified by actually running the real `opencode` CLI (the `opencode-ai` npm package) against a
 live OpenRouter model and watching it call `jev_decide` — not just by reading the code. That exercise

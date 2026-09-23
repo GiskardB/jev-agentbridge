@@ -4,6 +4,25 @@ This integration provides a callable tool `jev_decide` that maps the OpenCode ag
 
 ## Installation
 
+### Option A: from npm (recommended)
+
+Add the package name straight to your `opencode.json` — OpenCode installs and caches it for you,
+no local clone needed:
+
+```json
+{
+  "plugin": ["opencode-jev-agentbridge"]
+}
+```
+
+or via the CLI, which does the same thing:
+
+```bash
+opencode plugin opencode-jev-agentbridge
+```
+
+### Option B: from this repo (local path)
+
 1. Install the plugin's own dependency (the real `@opencode-ai/plugin` SDK the tool is built with):
 
    ```bash
@@ -18,17 +37,36 @@ This integration provides a callable tool `jev_decide` that maps the OpenCode ag
    }
    ```
 
-3. Point it at your running Bridge instance:
-
-   ```bash
-   export JEV_CPU_AGENTBRIDGE_URL=http://localhost:8000
-   ```
-
 Verify the tool actually registers without starting a full OpenCode session:
 
 ```bash
 cd integrations/opencode && npm test
 ```
+
+### Point it at your running Bridge instance
+
+```bash
+export JEV_CPU_AGENTBRIDGE_URL=http://localhost:8000
+```
+
+### Enable the skill (recommended)
+
+The tool alone only gets called when the model explicitly decides to reach for it. The skill in
+`skills/jev-cpu-agentbridge/` teaches the agent *when* that is, and OpenCode surfaces its
+description automatically on every step once it's discoverable — but only if it lives in one of
+OpenCode's skill paths. Copy or symlink it in:
+
+```bash
+# per-project
+mkdir -p .opencode/skills && cp -r <path-to-this-package>/skills/jev-cpu-agentbridge .opencode/skills/
+
+# or globally, for every project
+mkdir -p ~/.config/opencode/skills && cp -r <path-to-this-package>/skills/jev-cpu-agentbridge ~/.config/opencode/skills/
+```
+
+If installed from npm, `<path-to-this-package>` is wherever OpenCode cached it (typically under
+`~/.cache/opencode/node_modules/opencode-jev-agentbridge/`); if installed from this repo, it's
+`integrations/opencode/`.
 
 ## Usage
 
@@ -71,4 +109,6 @@ were found and fixed doing that verification — see [CHANGELOG.md](../../CHANGE
 
 ## SKILL.md
 
-See `skill/SKILL.md` for when to use JEV and when not to.
+See [`skills/jev-cpu-agentbridge/SKILL.md`](skills/jev-cpu-agentbridge/SKILL.md) for when to use
+JEV and when not to — install it per the "Enable the skill" step above so OpenCode actually loads
+it.

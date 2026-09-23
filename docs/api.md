@@ -24,7 +24,8 @@ service publishes it as OpenAPI at `GET /openapi.json`, with interactive docs at
 | `options` | 2–16 `{id, description}` | Ids must be unique (`DUPLICATE_OPTION_ID` otherwise). |
 | `min_selected_probability` | number 0..1, optional | Acceptance threshold for this call. Default: `JEV_MIN_SELECTED_PROBABILITY` (0.60). |
 
-Response `200`:
+Response `200` (this example comes from the `:semif` image; other engines return the same
+fields with their own `engine_details`):
 
 ```json
 {
@@ -78,7 +79,7 @@ Process liveness. Always `{"status": "ok"}`, even while the engine is loading.
 
 ## `GET /ready`
 
-`200 {"status": "ready", "engine": "semif", "model": "Qwen/Qwen3-0.6B"}` once the adapter is
+`200 {"status": "ready", "engine": "laya", "model": "convaiinnovations/laya"}` once the adapter is
 loaded, otherwise `503` with `MODEL_NOT_READY`.
 
 ## `GET /v1/info`
@@ -87,7 +88,7 @@ loaded, otherwise `503` with `MODEL_NOT_READY`.
 {
   "api_version": "v1",
   "version": "0.4.0",
-  "engine": { "name": "semif", "model": "Qwen/Qwen3-0.6B", "revision": "main", "native_batch": true },
+  "engine": { "name": "laya", "model": "convaiinnovations/laya", "revision": "main", "native_batch": true },
   "available_engines": ["laya", "rizzoflow", "semif"],
   "min_options": 2,
   "max_options": 16,

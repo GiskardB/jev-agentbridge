@@ -24,8 +24,8 @@ seconds of latency for a decision that's really just "pick A, B, or C".
 
 **JEV-CPU-AgentBridge** is a local, CPU-only REST service that answers those routine discrete choices
 for free. It exposes one **standard API** (`/v1/decide`, same request, response and errors for every
-engine). Behind it sits a pluggable **adapter** for the JEV-style engine you choose: semif
-(Qwen3-0.6B), Laya or RizzoFlow. Each one scores only the options in a single forward pass: no
+engine). Behind it sits a pluggable **adapter** for the JEV-style engine you choose: Laya
+(the default), semif (Qwen3-0.6B) or RizzoFlow. Each one scores only the options in a single forward pass: no
 text generation, no GPU, no external API call.
 
 **Use it as a gate in your orchestrator, in front of the LLM**, not as a tool the LLM calls.
@@ -87,34 +87,51 @@ sequenceDiagram
 
 The scoring backend is swappable: the API your agents call (`/v1/decide`, SDKs, integrations)
 never changes. The service owns validation, the acceptance threshold and the response shape.
-Adapters only score, so every engine behaves the same from the outside. Pick the image tag that matches the engine you want; the engine is baked into the
-image so `JEV_ENGINE` is **not needed** (override it with `-e JEV_ENGINE=...` only if you want a
+Adapters only score, so every engine behaves the same from the outside.
+
+Pick the image tag that matches the engine you want. The engine is baked into the image, so `JEV_ENGINE` is **not needed** (override it with `-e JEV_ENGINE=...` only if you want a
 different engine at runtime):
 
 | Image tag | Engine | What it is | Extra setup |
 |---|---|---|---|
-| `:latest` / `:semif` | `semif` (default) | Qwen3-0.6B causal LM, next-token scoring, runs in-process | none |
-| `:laya` | `laya` | Non-autoregressive encoder models ([NandhaKishorM/laya](https://github.com/NandhaKishorM/laya)), runs in-process | none — dependencies already baked in |
+| `:latest` / `:laya` | `laya` (default) | Non-autoregressive encoder models ([NandhaKishorM/laya](https://github.com/NandhaKishorM/laya)), runs in-process | none |
+| `:semif` | `semif` | Qwen3-0.6B causal LM, next-token scoring, runs in-process | none; `JEV_SEMIF_PROMPT_VERSION=direct-options-v2` recommended |
 | `:rizzoflow` | `rizzoflow` | llama.cpp + Spark-X2.5 GGUF via [Rizzo-AI-Academy/rizzo-flow](https://github.com/Rizzo-AI-Academy/rizzo-flow) — also usable as a general JEV integration point | run RizzoFlow itself separately (its own `rizzo serve`), then set `JEV_RIZZOFLOW_URL` |
 
 ```bash
-# semif (default) — nothing else to set
+# laya (default) — nothing else to set
 docker run -p 8000:8000 ghcr.io/giskardb/jev-agentbridge:latest
 
-# laya — dependencies baked into the image, no env var needed
-docker run -p 8000:8000 ghcr.io/giskardb/jev-agentbridge:laya
+# semif — with the better-scoring v2 prompt
+docker run -p 8000:8000 -e JEV_SEMIF_PROMPT_VERSION=direct-options-v2 \
+  ghcr.io/giskardb/jev-agentbridge:semif
 
 # rizzoflow — point at a RizzoFlow server you started separately (see their README)
 # Works as a general JEV client too: replace the server URL and it will talk to any
 # RizzoFlow-compatible backend you run yourself.
-docker run -p 8000:8000 ghcr.io/giskardb/jev-agentbridge:rizzoflow \
-  -e JEV_RIZZOFLOW_URL=http://host.docker.internal:8017
+docker run -p 8000:8000 -e JEV_RIZZOFLOW_URL=http://host.docker.internal:8017 \
+  ghcr.io/giskardb/jev-agentbridge:rizzoflow
 ```
 
 Adding a fourth backend is a new `DecisionAdapter` in `adapters/<name>/` plus one line in
 `adapters/registry.py`; see [docs/architecture.md](docs/architecture.md#adding-a-new-engine).
 
 ### How they compare
+
+**Laya is the default because it was both more accurate and faster on CPU.** Accuracy was
+measured with `jev-eval` on the 12-row samples in `examples/eval/`. That is indicative only:
+measure your own decisions.
+
+| Accuracy (12-row samples) | laya (English) | laya (multilingual) | semif prompt v1 | semif prompt v2 |
+|---|---|---|---|---|
+| English sample | **83.3%** | 75.0% | 41.7% | 75.0% |
+| Italian sample | **75.0%** | 75.0% | 41.7% | 66.7% |
+| p50 latency via API | ~350ms | ~170ms | ~530ms | ~530ms |
+
+For non-English traffic, try `JEV_LAYA_SUBFOLDER=multilingual`: same accuracy on the Italian
+sample at half the latency. Details in [docs/performance.md](docs/performance.md#accuracy-and-threshold).
+
+Latency-only benchmark from an earlier release:
 
 Laya's own published benchmarks (GPU, third-party numbers for "Jev") claim ~7.8x lower latency and
 better calibration than a Jev-style causal-LM engine, but lose badly past ~50 options. Nobody had
@@ -190,7 +207,9 @@ curl -X POST http://localhost:8000/v1/decide \
 
 Add `"min_selected_probability": 0.9` to the request to use a stricter threshold for this call only.
 
-*(Note: `engine` in the metadata reflects the image you ran — `semif` is the default.)*
+*(Note: `engine` in the metadata reflects the image you ran — `laya` is the default since 0.4.0.
+The example above came from the `:semif` image; laya reports `engine_details` with its own
+`choice`/`confidence` and no `input_tokens`.)*
 
 Full request/response reference: [docs/api.md](docs/api.md). Architecture details: [docs/architecture.md](docs/architecture.md).
 
@@ -264,8 +283,8 @@ jev-eval --dataset my-decisions.jsonl --url http://localhost:8000 --target-accur
 Runs a labelled JSONL dataset through the running Bridge (any engine). For each threshold it
 prints coverage (share of decisions JEV answers alone) and accuracy on those decisions, then
 recommends a threshold. See [docs/performance.md](docs/performance.md#accuracy-and-threshold)
-for a first measured run. Measure before you trust it: on the 12-row sample, semif with the
-default prompt was right 41.7% of the time.
+for measured runs. Measure before you trust it: on the 12-row samples the default engine
+(laya) was right 83.3% of the time in English and 75% in Italian.
 
 No SDK needed either — it's one HTTP call, so any language works.
 
@@ -401,13 +420,13 @@ it, forward the input to `POST /v1/decide` and return the JSON result as the too
 
 Image tags:
 ```bash
-# Default (semif)
+# Default (laya) — :latest and :laya are the same image
 docker pull ghcr.io/giskardb/jev-agentbridge:latest
 docker run -p 8000:8000 ghcr.io/giskardb/jev-agentbridge:latest
 
-# Laya variant (engine baked in)
-docker pull ghcr.io/giskardb/jev-agentbridge:laya
-docker run -p 8000:8000 ghcr.io/giskardb/jev-agentbridge:laya
+# semif variant (engine baked in)
+docker pull ghcr.io/giskardb/jev-agentbridge:semif
+docker run -p 8000:8000 ghcr.io/giskardb/jev-agentbridge:semif
 
 # RizzoFlow variant (general JEV integration point)
 docker pull ghcr.io/giskardb/jev-agentbridge:rizzoflow

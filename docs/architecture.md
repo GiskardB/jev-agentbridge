@@ -106,8 +106,8 @@ Nothing in `api/`, `core/`, the SDKs or client code changes.
 
 | Image tag | `JEV_ENGINE` | Adapter | Engine-specific settings |
 |---|---|---|---|
-| `:latest` / `:semif` | `semif` (default) | Causal LM, next-token scoring of option letters A–P | `JEV_MODEL_NAME`, `JEV_MODEL_REVISION`, `JEV_MODEL_DEVICE`, `JEV_MAX_INPUT_TOKENS` |
-| `:laya` | `laya` | Laya encoder, non-autoregressive | `JEV_LAYA_MODEL_NAME`, `JEV_LAYA_SUBFOLDER`, `JEV_MODEL_DEVICE` |
+| `:latest` / `:laya` | `laya` (default) | Laya encoder, non-autoregressive | `JEV_LAYA_MODEL_NAME`, `JEV_LAYA_SUBFOLDER` (`multilingual` for non-English), `JEV_MODEL_DEVICE` |
+| `:semif` | `semif` | Causal LM, next-token scoring of option letters A–P | `JEV_MODEL_NAME`, `JEV_MODEL_REVISION`, `JEV_MODEL_DEVICE`, `JEV_MAX_INPUT_TOKENS`, `JEV_SEMIF_PROMPT_VERSION` (`direct-options-v1` default, `direct-options-v2` recommended) |
 | `:rizzoflow` | `rizzoflow` | HTTP client to a separately-run RizzoFlow server | `JEV_RIZZOFLOW_URL`, `JEV_RIZZOFLOW_TIMEOUT_SECONDS` |
 
 Service-wide settings: `JEV_ENGINE`, `JEV_MIN_SELECTED_PROBABILITY` (default threshold, 0.60),

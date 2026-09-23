@@ -12,7 +12,7 @@ class Settings:
 
     host: str = "127.0.0.1"
     port: int = 8000
-    engine: str = "semif"
+    engine: str = "laya"  # best measured accuracy and latency on CPU; see docs/performance.md
     min_selected_probability: float = 0.60
 
     @classmethod

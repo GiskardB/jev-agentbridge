@@ -23,6 +23,7 @@ from .prompt import (
     build_decision_prompt,
     build_prefix,
     build_suffix,
+    check_prompt_version,
     prompt_sha256,
 )
 from .tokenizer_slots import TokenSlotValidator
@@ -36,6 +37,7 @@ class SemIfConfig:
     model_revision: str = "main"
     device: str = "cpu"
     max_input_tokens: int = 4096
+    prompt_version: str = PROMPT_VERSION
 
     @classmethod
     def from_env(cls) -> "SemIfConfig":
@@ -44,6 +46,7 @@ class SemIfConfig:
             model_revision=os.getenv("JEV_MODEL_REVISION", cls.model_revision),
             device=os.getenv("JEV_MODEL_DEVICE", cls.device),
             max_input_tokens=int(os.getenv("JEV_MAX_INPUT_TOKENS", str(cls.max_input_tokens))),
+            prompt_version=os.getenv("JEV_SEMIF_PROMPT_VERSION", cls.prompt_version),
         )
 
 
@@ -62,12 +65,14 @@ class SemIfAdapter:
         model_name: str,
         model_revision: str,
         max_input_tokens: int,
+        prompt_version: str = PROMPT_VERSION,
     ) -> None:
         self._model = model
         self._tokenizer = tokenizer
         self._model_name = model_name
         self._model_revision = model_revision
         self._max_input_tokens = max_input_tokens
+        self._prompt_version = check_prompt_version(prompt_version)
         self._slots = TokenSlotValidator(tokenizer).validate(LETTERS)
         self._lock = threading.Lock()
 
@@ -86,6 +91,7 @@ class SemIfAdapter:
             model_name=config.model_name,
             model_revision=config.model_revision,
             max_input_tokens=config.max_input_tokens,
+            prompt_version=config.prompt_version,
         )
 
     def info(self) -> EngineInfo:
@@ -124,23 +130,26 @@ class SemIfAdapter:
             for option, probability in zip(decision.options, probabilities)
         }
 
-    def _details(self, state: State, decision: Decision) -> dict[str, Any]:
-        prompt = build_decision_prompt(
-            state=state, question=decision.question, options=_option_pairs(decision)
+    def _prompt(self, state: State, decision: Decision) -> str:
+        return build_decision_prompt(
+            state=state,
+            question=decision.question,
+            options=_option_pairs(decision),
+            version=self._prompt_version,
         )
-        return {"prompt_version": PROMPT_VERSION, "prompt_sha256": prompt_sha256(prompt)}
+
+    def _details(self, prompt: str) -> dict[str, Any]:
+        return {"prompt_version": self._prompt_version, "prompt_sha256": prompt_sha256(prompt)}
 
     def score(self, *, state: State, decision: Decision) -> Scores:
-        prompt = build_decision_prompt(
-            state=state, question=decision.question, options=_option_pairs(decision)
-        )
+        prompt = self._prompt(state, decision)
         input_ids = self._tokenize(prompt)
         with self._lock, torch.no_grad():
             outputs = self._forward(input_ids=input_ids, use_cache=False)
         return Scores(
             probabilities=self._letter_probabilities(outputs.logits, decision),
             input_tokens=int(input_ids.shape[-1]),
-            details={"prompt_version": PROMPT_VERSION, "prompt_sha256": prompt_sha256(prompt)},
+            details=self._details(prompt),
         )
 
     def score_batch(self, *, state: State, decisions: Sequence[Decision]) -> list[Scores]:
@@ -148,7 +157,11 @@ class SemIfAdapter:
 
         prefix_ids = self._tokenize(build_prefix(state))
         suffixes = [
-            self._tokenize(build_suffix(decision.question, _option_pairs(decision)))
+            self._tokenize(
+                build_suffix(
+                    decision.question, _option_pairs(decision), version=self._prompt_version
+                )
+            )
             for decision in decisions
         ]
         results: list[Scores] = []
@@ -167,7 +180,7 @@ class SemIfAdapter:
                     Scores(
                         probabilities=self._letter_probabilities(outputs.logits, decision),
                         input_tokens=int(prefix_ids.shape[-1] + suffix_ids.shape[-1]),
-                        details=self._details(state, decision),
+                        details=self._details(self._prompt(state, decision)),
                     )
                 )
         return results

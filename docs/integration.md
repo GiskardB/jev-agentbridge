@@ -82,16 +82,16 @@ The Bridge API is identical for every engine (see [architecture.md](architecture
 
 | Image tag | Runtime engine | What it is |
 |---|---|---|
-| `:latest` / `:semif` | `semif` (default) | Qwen3-0.6B causal LM, next-token scoring, CPU only |
-| `:laya` | `laya` | Non-autoregressive encoder models, CPU only |
+| `:latest` / `:laya` | `laya` (default) | Non-autoregressive encoder models, CPU only. Best measured accuracy and latency |
+| `:semif` | `semif` | Qwen3-0.6B causal LM, next-token scoring, CPU only. Use `JEV_SEMIF_PROMPT_VERSION=direct-options-v2` |
 | `:rizzoflow` | `rizzoflow` | HTTP client to a separately-run RizzoFlow server — also usable as a general JEV integration point |
 
 The engine is baked into the image by the release pipeline, so `JEV_ENGINE` is not needed when
 you pull the matching tag:
 
 ```bash
-docker run -p 8000:8000 ghcr.io/giskardb/jev-agentbridge:latest   # semif
-docker run -p 8000:8000 ghcr.io/giskardb/jev-agentbridge:laya     # laya
+docker run -p 8000:8000 ghcr.io/giskardb/jev-agentbridge:latest   # laya
+docker run -p 8000:8000 ghcr.io/giskardb/jev-agentbridge:semif    # semif
 docker run -p 8000:8000 ghcr.io/giskardb/jev-agentbridge:rizzoflow # rizzoflow
 ```
 

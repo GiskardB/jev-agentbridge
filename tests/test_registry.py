@@ -33,3 +33,9 @@ def test_adapters_satisfy_the_port() -> None:
     assert isinstance(RizzoFlowAdapter(base_url="http://x"), DecisionAdapter)
     assert isinstance(LayaAdapter(agent=object(), model_name="m", subfolder=None), DecisionAdapter)
     assert isinstance(FakeAdapter(), DecisionAdapter)
+
+
+def test_laya_is_the_default_engine() -> None:
+    from jev_cpu_agentbridge.runtime.settings import Settings
+
+    assert Settings().engine == "laya"

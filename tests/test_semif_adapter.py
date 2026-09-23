@@ -104,3 +104,30 @@ def test_prompt_contains_all_components() -> None:
     assert "evidence" in prompt and "criterion" in prompt
     assert "A." in prompt and "B." in prompt
     assert len(prompt_sha256(prompt)) == 64
+
+
+def test_prompt_versions() -> None:
+    from jev_cpu_agentbridge.adapters.semif.prompt import build_prefix, build_suffix
+
+    pairs = [("A", "A"), ("B", "B")]
+    v1 = build_decision_prompt(state="s", question="q", options=pairs)
+    v2 = build_decision_prompt(state="s", question="q", options=pairs, version="direct-options-v2")
+    assert v2 == v1 + "\n\nAnswer:"
+    assert v2 == build_prefix("s") + build_suffix("q", pairs, version="direct-options-v2")
+    with pytest.raises(ValueError, match="Unknown semif prompt version"):
+        build_decision_prompt(state="s", question="q", options=pairs, version="nope")
+
+
+def test_adapter_reports_selected_prompt_version() -> None:
+    from jev_cpu_agentbridge.adapters.semif.adapter import SemIfAdapter
+
+    adapter = SemIfAdapter(
+        model=FakeModel(),
+        tokenizer=FakeTokenizer(),
+        model_name="fake",
+        model_revision="fake",
+        max_input_tokens=10000,
+        prompt_version="direct-options-v2",
+    )
+    scores = adapter.score(state="s", decision=Decision("q", RETRY_ABORT))
+    assert scores.details["prompt_version"] == "direct-options-v2"

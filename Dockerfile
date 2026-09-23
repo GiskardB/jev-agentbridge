@@ -5,14 +5,11 @@ WORKDIR /app
 RUN pip install --no-cache-dir uv
 
 COPY pyproject.toml uv.lock ./
-# ENGINE selects which decision engine to run at startup (semif | laya | rizzoflow).
-# ENGINE_EXTRA installs the matching Python extra (only "laya" needs one;
-# rizzoflow is stdlib-only, semif has no extra).
-ARG ENGINE=semif
-ARG ENGINE_EXTRA=""
+# ENGINE selects which decision engine runs at startup (laya | semif | rizzoflow).
+# All engines' dependencies are core dependencies, so the install is the same.
+ARG ENGINE=laya
 ENV JEV_ENGINE=${ENGINE}
-RUN if [ "$ENGINE" = "laya" ]; then uv sync --frozen --no-dev --extra laya; \
-    else uv sync --frozen --no-dev; fi
+RUN uv sync --frozen --no-dev
 
 COPY src/ ./src/
 COPY benchmarks/ ./benchmarks/

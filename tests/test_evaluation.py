@@ -47,3 +47,7 @@ def test_summarize_coverage_accuracy_and_recommendation() -> None:
 def test_summarize_no_threshold_reaches_target() -> None:
     summary = summarize([Prediction("a", "b", 0.99)], thresholds=[0.5])
     assert summary["recommended_threshold"] is None
+
+
+def test_italian_sample_dataset_is_valid() -> None:
+    assert len(load_dataset(str(SAMPLE.with_name("sample_it.jsonl")))) == 12

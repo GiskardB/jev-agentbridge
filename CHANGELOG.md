@@ -38,6 +38,24 @@
 
 Architecture: a standard REST contract with engine adapters behind it (ports & adapters).
 
+- Change: **laya is now the default engine** (`JEV_ENGINE` default, Dockerfile `ENGINE`
+  default, and the `:latest` image tag). On the 12-row samples it scored 83.3% (English) and
+  75% (Italian), against 41.7% / 41.7% for semif with its default prompt. It was also faster
+  (~350ms vs ~530ms p50). `laya` is now a core dependency; the `[laya]` extra is kept empty
+  for compatibility. semif moves to the `:semif` tag. **Breaking for `:latest` users who
+  relied on semif:** pull `:semif` or set `JEV_ENGINE=semif`.
+- Fix: the laya adapter used Laya's `confidence` as `selected_probability`. That field is
+  1 − normalized entropy, not the probability of the chosen option. For example, p=0.64 comes
+  back as confidence 0.056, so against the 0.60 threshold laya almost never returned
+  `accepted=true`. `selected_probability` is now the chosen option's probability, as for every
+  engine. Laya's value is still reported as `metadata.engine_details.confidence`.
+- Add: `JEV_SEMIF_PROMPT_VERSION` selects the semif prompt. `direct-options-v1` stays the
+  default. `direct-options-v2` appends `"\n\nAnswer:"` and scored 75% / 66.7% on the samples
+  (v1: 41.7%). The active version is reported in `metadata.engine_details.prompt_version`.
+- Add: `examples/eval/sample_it.jsonl`, the Italian version of the sample dataset.
+  `docs/performance.md` has the full engine × language table, including
+  `JEV_LAYA_SUBFOLDER=multilingual` (75% / 75% at ~170ms).
+
 - Change: code reorganized into `api/` (v1 contract, routes, error envelope), `core/` (domain
   models, `DecisionAdapter` port, `DecisionService`, domain errors) and `adapters/<engine>/`
   (semif, laya, rizzoflow, each with its own config read from its own env vars). Adapters only

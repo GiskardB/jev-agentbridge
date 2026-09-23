@@ -90,19 +90,24 @@ right. It then recommends the lowest threshold that reaches the target, which is
 the most coverage. Use 200–500 real examples of one decision type; `examples/eval/sample.jsonl`
 (12 rows) only shows the format.
 
-### Measured: semif on the sample dataset
+### Measured: all in-process engines on the samples
 
-One run, `semif` with Qwen3-0.6B on CPU, the 12-row sample:
+One run per configuration, CPU, through the Bridge API (`jev-eval`), on
+`examples/eval/sample.jsonl` (English) and `examples/eval/sample_it.jsonl` (the same 12 decisions
+in Italian):
 
-| Threshold | Coverage | Accuracy on accepted |
-|---|---|---|
-| 0.60 | 100% | 41.7% |
-| 0.70 | 58.3% | 57.1% |
-| 0.75 | 33.3% | 75.0% |
-| 0.80 | 8.3% | 100% (1 decision) |
+| Engine / config | Accuracy EN | Accuracy IT | p50 latency |
+|---|---|---|---|
+| laya, English model (default) | **83.3%** | **75.0%** | ~350ms |
+| laya, `JEV_LAYA_SUBFOLDER=multilingual` | 75.0% | 75.0% | ~170ms |
+| semif, `direct-options-v1` prompt (default) | 41.7% | 41.7% | ~530ms |
+| semif, `direct-options-v2` prompt | 75.0% | 66.7% | ~530ms |
 
-Overall accuracy was 41.7%, close to chance for 2–3 options. The same numbers come out of the
-pre-0.4.0 engine, so this is not a refactor regression. The prompt looks like the cause. On the
-same 12 rows, appending `"\n\nAnswer:"` to the current prompt raised semif to 9/12 correct, and
-wrapping it in Qwen's chat template (thinking disabled) gave 8/12. Twelve rows are too few to
-change the default prompt. Validate a new prompt version on a real dataset with `jev-eval` first.
+This is why laya became the default engine in 0.4.0. semif v1 is close to chance; its prompt
+ends right after the option list, so the next token is rarely the letter. v2 appends
+`"\n\nAnswer:"`. It stays opt-in (`JEV_SEMIF_PROMPT_VERSION=direct-options-v2`) until it is
+validated on a larger dataset. A chat-template variant was also tried (8/12 EN) and is not shipped.
+
+Twelve rows are far too few for a production threshold. Even laya accepted confident mistakes:
+it chose `retry` at p=0.946 when four identical failures in a row called for `rollback`. Build
+200–500 real examples per decision type and let `jev-eval` pick the threshold.

@@ -1,6 +1,6 @@
 {
   "name": "opencode-jev-agentbridge",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "OpenCode plugin: jev_decide tool backed by JEV-CPU-AgentBridge (local CPU discrete-decision engine)",
   "keywords": ["opencode", "opencode-plugin", "agent", "decision-engine"],

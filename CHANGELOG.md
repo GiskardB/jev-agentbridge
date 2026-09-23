@@ -16,6 +16,11 @@
 - Note: publishing found a real gotcha — `npm publish` returns `403 Forbidden` for a Granular
   Access Token unless "bypass 2FA" is explicitly enabled on it; a classic **Automation** token
   works out of the box and is what `NPM_TOKEN` should be.
+- Add: the plugin now auto-installs its bundled skill into `.opencode/skills/jev-cpu-agentbridge/`
+  on first load (copy-once, won't clobber a customized copy) — there's no OpenCode plugin API to
+  register a skill in code, only filesystem discovery, so this closes the gap without the
+  developer having to copy anything by hand. Global install (`~/.config/opencode/skills/`) is
+  still a manual step, documented in `integrations/opencode/README.md`.
 
 ## 0.3.1
 

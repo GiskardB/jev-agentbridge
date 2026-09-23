@@ -7,6 +7,9 @@ venv
 # Node
 node_modules/
 
+# Auto-installed by integrations/opencode's plugin (test/local runs)
+integrations/opencode/.opencode/
+
 # PyCache
 __pycache__/
 *.pyc

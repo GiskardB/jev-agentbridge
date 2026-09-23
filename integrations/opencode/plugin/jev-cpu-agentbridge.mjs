@@ -11,6 +11,36 @@
 // in integrations/opencode/ — see package.json there).
 
 import { tool } from "@opencode-ai/plugin";
+import { existsSync, mkdirSync, cpSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+// OpenCode only auto-discovers skills from .opencode/skills/<name>/ (or the
+// .claude/.agents/global equivalents) — it has no API for a plugin to
+// register a skill in code. So on first load we copy our bundled skill into
+// the project's .opencode/skills/, best-effort, without clobbering an
+// existing copy (e.g. one the user customized).
+// ponytail: copy-once, no version check — a plugin update won't refresh an
+// already-installed skill; delete .opencode/skills/jev-cpu-agentbridge/ to
+// pick up a newer bundled version.
+function installSkill(log) {
+  try {
+    const here = dirname(fileURLToPath(import.meta.url));
+    const src = join(here, "..", "skills", "jev-cpu-agentbridge");
+    const dest = join(process.cwd(), ".opencode", "skills", "jev-cpu-agentbridge");
+    if (existsSync(src) && !existsSync(dest)) {
+      mkdirSync(dirname(dest), { recursive: true });
+      cpSync(src, dest, { recursive: true });
+      log("info", `jev-cpu-agentbridge: installed skill to ${dest}`);
+    }
+  } catch (e) {
+    log(
+      "warn",
+      `jev-cpu-agentbridge: could not auto-install the skill (${e.message}); copy ` +
+        "skills/jev-cpu-agentbridge/ into .opencode/skills/ manually if needed.",
+    );
+  }
+}
 
 export default async ({ client } = {}) => {
   const log = (level, message) => {
@@ -18,6 +48,8 @@ export default async ({ client } = {}) => {
       client && client.app && client.app.log({ body: { service: "jev-cpu-agentbridge", level, message } });
     } catch (e) {}
   };
+
+  installSkill(log);
 
   const baseUrl = process.env.JEV_CPU_AGENTBRIDGE_URL || "http://localhost:8000";
 

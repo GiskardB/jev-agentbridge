@@ -49,24 +49,28 @@ cd integrations/opencode && npm test
 export JEV_CPU_AGENTBRIDGE_URL=http://localhost:8000
 ```
 
-### Enable the skill (recommended)
+### The skill
 
 The tool alone only gets called when the model explicitly decides to reach for it. The skill in
-`skills/jev-cpu-agentbridge/` teaches the agent *when* that is, and OpenCode surfaces its
-description automatically on every step once it's discoverable — but only if it lives in one of
-OpenCode's skill paths. Copy or symlink it in:
+`skills/jev-cpu-agentbridge/` teaches the agent *when* that is — OpenCode surfaces a skill's
+description automatically on every step, but only if it lives in one of OpenCode's skill paths
+(there's no plugin API to register a skill in code, only filesystem discovery).
+
+**This now happens automatically**: the first time the plugin loads, it copies its bundled skill
+into `.opencode/skills/jev-cpu-agentbridge/` in your project, if it isn't there already. Nothing
+to run by hand. If it doesn't show up (e.g. OpenCode had already loaded its skill list for the
+current session before the plugin ran), restart the session once.
+
+To make it available globally instead of per-project, copy it into OpenCode's global skills dir
+once:
 
 ```bash
-# per-project
-mkdir -p .opencode/skills && cp -r <path-to-this-package>/skills/jev-cpu-agentbridge .opencode/skills/
-
-# or globally, for every project
 mkdir -p ~/.config/opencode/skills && cp -r <path-to-this-package>/skills/jev-cpu-agentbridge ~/.config/opencode/skills/
 ```
 
-If installed from npm, `<path-to-this-package>` is wherever OpenCode cached it (typically under
-`~/.cache/opencode/node_modules/opencode-jev-agentbridge/`); if installed from this repo, it's
-`integrations/opencode/`.
+(`<path-to-this-package>` is wherever OpenCode cached the npm install, typically
+`~/.cache/opencode/node_modules/opencode-jev-agentbridge/`, or `integrations/opencode/` if you
+installed from this repo.)
 
 ## Usage
 

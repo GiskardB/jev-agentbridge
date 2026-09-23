@@ -9,7 +9,14 @@
 // of regression without needing a running opencode server.
 
 import assert from "node:assert/strict";
+import { existsSync, rmSync } from "node:fs";
+import { join } from "node:path";
 import plugin from "./plugin/jev-cpu-agentbridge.mjs";
+
+const installedSkillDir = join(process.cwd(), ".opencode", "skills", "jev-cpu-agentbridge");
+// This test's cwd is this package's own directory, so it's always safe to
+// remove whatever the plugin installs here — not a real project's .opencode/.
+rmSync(join(process.cwd(), ".opencode"), { recursive: true, force: true });
 
 const hooks = await plugin({});
 
@@ -23,4 +30,11 @@ for (const key of ["state", "question", "options"]) {
   assert.ok(key in def.args, `jev_decide.args must declare "${key}"`);
 }
 
-console.log("OK: jev_decide registered with the expected shape");
+assert.ok(
+  existsSync(join(installedSkillDir, "SKILL.md")),
+  "plugin load must auto-install the bundled skill into .opencode/skills/",
+);
+
+rmSync(join(process.cwd(), ".opencode"), { recursive: true, force: true });
+
+console.log("OK: jev_decide registered with the expected shape, and the skill auto-installs");

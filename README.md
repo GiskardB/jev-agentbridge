@@ -234,9 +234,10 @@ npm as [`opencode-jev-agentbridge`](https://www.npmjs.com/package/opencode-jev-a
    ```bash
    export JEV_CPU_AGENTBRIDGE_URL=http://localhost:8000
    ```
-3. Enable the skill so the agent knows *when* to reach for the tool without being told explicitly
-   — see the "Enable the skill" step in
-   [integrations/opencode/README.md](integrations/opencode/README.md).
+3. The plugin auto-installs its skill into `.opencode/skills/` on first load, so the agent knows
+   *when* to reach for the tool without being told explicitly — see
+   [integrations/opencode/README.md](integrations/opencode/README.md) if you want it global instead
+   of per-project.
 4. The agent gets a `jev_decide` tool it can call directly — see
    [integrations/opencode/README.md](integrations/opencode/README.md) for the full request/response
    shape and for installing from this repo instead of npm.

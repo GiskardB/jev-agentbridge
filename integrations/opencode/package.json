@@ -1,7 +1,8 @@
 {
   "name": "opencode-jev-agentbridge",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "type": "module",
+  "main": "./plugin/jev-cpu-agentbridge.mjs",
   "description": "OpenCode plugin: jev_decide tool backed by JEV-CPU-AgentBridge (local CPU discrete-decision engine)",
   "keywords": ["opencode", "opencode-plugin", "agent", "decision-engine"],
   "license": "MIT",

@@ -25,6 +25,14 @@
   `engine`, `latency_ms`) on every successful call, not just on failure — makes it possible to
   confirm from OpenCode's own logs whether a given session actually engaged JEV, without relying
   on scrolling the transcript.
+- Fix: `0.1.0`-`0.1.2` installed silently but never actually loaded — `package.json` had no `main`
+  or `exports` field, so OpenCode's npm-plugin resolver found no entrypoint to run
+  (`opencode plugin <name>` surfaces this as "No plugin targets found" / "does not expose plugin
+  entrypoints in package.json"; loading it via `opencode.json`'s `plugin` array failed the same
+  way but logged nothing at all — the package just sat in `~/.cache/opencode/packages/` inert).
+  Installing from a local file path (`./plugin/jev-cpu-agentbridge.mjs`) was never affected, since
+  that bypasses entrypoint resolution entirely — only the npm install path was broken. Fixed by
+  adding `"main": "./plugin/jev-cpu-agentbridge.mjs"`.
 
 ## 0.3.1
 

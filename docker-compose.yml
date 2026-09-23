@@ -11,8 +11,8 @@ services:
     environment:
       - JEV_HOST=0.0.0.0
       - JEV_PORT=8000
-      # - JEV_ENGINE=laya          # requires the :laya image tag, or --build with --build-arg ENGINE_EXTRA=laya
-      # - JEV_RIZZOFLOW_URL=http://host.docker.internal:8017  # JEV_ENGINE=rizzoflow, server run separately
+      # - JEV_RIZZOFLOW_URL=http://host.docker.internal:8017  # for :rizzoflow image,
+      #   point at a separate RizzoFlow server (default: http://localhost:8017)
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 30s

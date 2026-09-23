@@ -8,6 +8,9 @@ services:
     environment:
       - JEV_HOST=0.0.0.0
       - JEV_PORT=8000
+      # When building from source, set the engine explicitly. Published images
+      # (:semif, :laya, :rizzoflow) already bake this in.
+      # - JEV_ENGINE=laya
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 30s

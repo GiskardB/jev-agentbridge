@@ -22,9 +22,7 @@ Every AI agent constantly makes small binary or few-way calls: *retry or abort? 
 Routing those through a full generative LLM (OpenAI, Anthropic, OpenRouter...) burns tokens, money, and 1-15
 seconds of latency for a decision that's really just "pick A, B, or C".
 
-**JEV-CPU-AgentBridge** runs a small model (Qwen3-0.6B, ~600M params) locally on **CPU only** and scores just the
-option letters via a single forward pass — no text generation, no GPU, no external API call. Your main agent
-model stays free to do the actual reasoning; this handles the routine judgment calls.
+**JEV-CPU-AgentBridge** is a local, CPU-only FastAPI gateway that answers those routine discrete choices in milliseconds — for free. It runs a small model (Qwen3-0.6B, ~600M params) locally on CPU only and scores just the option letters via a single forward pass — no text generation, no GPU, no external API call. Your main agent model stays free to do the actual reasoning; this handles the judgment calls.
 
 Measured on this repo's own [OpenCode example](examples/opencode-docker/): the same decision took **~2s locally
 for $0**, vs **~15.7s and 586 tokens** through OpenRouter (qwen3-32b) — **~7.9x faster**. Your numbers will vary
@@ -36,7 +34,7 @@ with hardware and prompt size; see [docs/performance.md](docs/performance.md) be
 flowchart LR
     Agent["AI Agent<br/>LangChain · OpenCode · your own loop"]
     Bridge["JEV-CPU-AgentBridge<br/>FastAPI"]
-    Engine["Decision engine<br/>SemIfEngine or LayaEngine<br/>one forward pass, CPU"]
+    Engine["Decision engine<br/>SemIfEngine, LayaEngine, or RizzoFlowEngine<br/>one forward pass, CPU"]
     Result["{ decision, probabilities,<br/>selected_probability, accepted }"]
 
     Agent -- "POST /v1/decide<br/>{state, question, options[2..16]}" --> Bridge
@@ -54,7 +52,7 @@ a handful of options, which is what makes it fast enough to run on a CPU.
 sequenceDiagram
     participant Agent as AI Agent
     participant Bridge as JEV-CPU-AgentBridge (FastAPI)
-    participant Engine as DecisionEngine (semif or laya)
+    participant Engine as DecisionEngine (semif, laya, or rizzoflow)
     participant Model as Model (CPU)
 
     Agent->>Bridge: POST /v1/decide<br/>{state, question, options[2..16]}
@@ -71,27 +69,29 @@ sequenceDiagram
 
 ## Pluggable engines
 
-The scoring backend is swappable with one environment variable — the API your agents call
-(`/v1/decide`, SDKs, integrations) never changes. Pick the image tag that matches the engine you
-want; nothing to install or build yourself:
+The scoring backend is swappable — the API your agents call (`/v1/decide`, SDKs, integrations)
+never changes. Pick the image tag that matches the engine you want; the engine is baked into the
+image so `JEV_ENGINE` is **not needed** (override it with `-e JEV_ENGINE=...` only if you want a
+different engine at runtime):
 
-| `JEV_ENGINE` | What it is | Image to pull | Extra setup |
+| Image tag | Engine | What it is | Extra setup |
 |---|---|---|---|
-| `semif` (default) | Qwen3-0.6B causal LM, next-token scoring, runs in-process | `ghcr.io/giskardb/jev-agentbridge:latest` | none |
-| `laya` | Non-autoregressive encoder models ([NandhaKishorM/laya](https://github.com/NandhaKishorM/laya)), runs in-process | `ghcr.io/giskardb/jev-agentbridge:laya` | none — the `:laya` image already has it |
-| `rizzoflow` | llama.cpp + Spark-X2.5 GGUF via [Rizzo-AI-Academy/rizzo-flow](https://github.com/Rizzo-AI-Academy/rizzo-flow) | same default image (zero extra deps — it's an HTTP client) | run RizzoFlow itself separately (its own `rizzo serve`), then set `JEV_RIZZOFLOW_URL` |
+| `:latest` / `:semif` | `semif` (default) | Qwen3-0.6B causal LM, next-token scoring, runs in-process | none |
+| `:laya` | `laya` | Non-autoregressive encoder models ([NandhaKishorM/laya](https://github.com/NandhaKishorM/laya)), runs in-process | none — dependencies already baked in |
+| `:rizzoflow` | `rizzoflow` | llama.cpp + Spark-X2.5 GGUF via [Rizzo-AI-Academy/rizzo-flow](https://github.com/Rizzo-AI-Academy/rizzo-flow) — also usable as a general JEV integration point | run RizzoFlow itself separately (its own `rizzo serve`), then set `JEV_RIZZOFLOW_URL` |
 
 ```bash
 # semif (default) — nothing else to set
 docker run -p 8000:8000 ghcr.io/giskardb/jev-agentbridge:latest
 
-# laya — pull the variant image that already bundles its dependencies
-docker run -p 8000:8000 -e JEV_ENGINE=laya ghcr.io/giskardb/jev-agentbridge:laya
+# laya — dependencies baked into the image, no env var needed
+docker run -p 8000:8000 ghcr.io/giskardb/jev-agentbridge:laya
 
 # rizzoflow — point at a RizzoFlow server you started separately (see their README)
-docker run -p 8000:8000 -e JEV_ENGINE=rizzoflow \
-  -e JEV_RIZZOFLOW_URL=http://host.docker.internal:8017 \
-  ghcr.io/giskardb/jev-agentbridge:latest
+# Works as a general JEV client too: replace the server URL and it will talk to any
+# RizzoFlow-compatible backend you run yourself.
+docker run -p 8000:8000 ghcr.io/giskardb/jev-agentbridge:rizzoflow \
+  -e JEV_RIZZOFLOW_URL=http://host.docker.internal:8017
 ```
 
 Adding a fourth backend is a new `DecisionEngine` implementation plus one line in
@@ -168,6 +168,8 @@ curl -X POST http://localhost:8000/v1/decide \
   "metadata": {"engine": "semif", "mode": "direct", "model": "Qwen/Qwen3-0.6B", "latency_ms": 210.4}
 }
 ```
+
+*(Note: `engine` in the metadata reflects the image you ran — `semif` is the default.)*
 
 Full request/response reference: [docs/api.md](docs/api.md). Architecture details: [docs/architecture.md](docs/architecture.md).
 
@@ -332,14 +334,24 @@ it, forward the input to `POST /v1/decide` and return the JSON result as the too
 ## Releases & CI
 
 - Versioning follows [SemVer](https://semver.org/); see [CHANGELOG.md](CHANGELOG.md) for the release history.
-- `.github/workflows/ci.yml` runs lint + tests on every push/PR.
-- `.github/workflows/release.yml` builds and publishes the Docker image whenever a `vX.Y.Z` tag is
+- `.github/workflows/ci.yml` runs lint + tests on every push/PR, and verifies all engine variants build correctly.
+- `.github/workflows/release.yml` builds and publishes Docker images whenever a `vX.Y.Z` tag is
   pushed — to [GitHub Container Registry](https://github.com/GiskardB/jev-agentbridge/pkgs/container/jev-agentbridge)
   on github.com, or to the local instance's registry when run on a self-hosted Forgejo/Gitea.
 
+Image tags:
 ```bash
+# Default (semif)
 docker pull ghcr.io/giskardb/jev-agentbridge:latest
 docker run -p 8000:8000 ghcr.io/giskardb/jev-agentbridge:latest
+
+# Laya variant (engine baked in)
+docker pull ghcr.io/giskardb/jev-agentbridge:laya
+docker run -p 8000:8000 ghcr.io/giskardb/jev-agentbridge:laya
+
+# RizzoFlow variant (general JEV integration point)
+docker pull ghcr.io/giskardb/jev-agentbridge:rizzoflow
+docker run -p 8000:8000 ghcr.io/giskardb/jev-agentbridge:rizzoflow
 ```
 
 ## Documentation

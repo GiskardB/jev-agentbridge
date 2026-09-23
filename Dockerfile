@@ -5,10 +5,14 @@ WORKDIR /app
 RUN pip install --no-cache-dir uv
 
 COPY pyproject.toml uv.lock ./
-# Build with --build-arg ENGINE_EXTRA=laya to bake in the Laya engine's dependencies
-# (the release pipeline publishes that as the :laya image tag). Default: semif only.
+# ENGINE selects which decision engine to run at startup (semif | laya | rizzoflow).
+# ENGINE_EXTRA installs the matching Python extra (only "laya" needs one;
+# rizzoflow is stdlib-only, semif has no extra).
+ARG ENGINE=semif
 ARG ENGINE_EXTRA=""
-RUN if [ -n "$ENGINE_EXTRA" ]; then uv sync --frozen --no-dev --extra "$ENGINE_EXTRA"; else uv sync --frozen --no-dev; fi
+ENV JEV_ENGINE=${ENGINE}
+RUN if [ "$ENGINE" = "laya" ]; then uv sync --frozen --no-dev --extra laya; \
+    else uv sync --frozen --no-dev; fi
 
 COPY src/ ./src/
 COPY benchmarks/ ./benchmarks/

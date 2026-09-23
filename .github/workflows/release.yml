@@ -13,10 +13,12 @@ jobs:
       packages: write
     strategy:
       matrix:
-        # "" = default image (semif only). Add an entry here for each engine that needs its own
-        # dependencies baked in (see Dockerfile's ENGINE_EXTRA build arg). rizzoflow needs none
-        # (it's a plain HTTP client), so it doesn't get a variant.
-        extra: ["", "laya"]
+        # One image per engine. The engine is baked in via the Dockerfile's
+        # JEV_ENGINE ENV (ENGINE build arg), so the image tag alone determines
+        # the runtime engine — no -e JEV_ENGINE needed. Only "laya" carries
+        # extra Python deps (ENGINE_EXTRA=laya); semif and rizzoflow are
+        # stdlib-only.
+        engine: ["semif", "laya", "rizzoflow"]
     steps:
       - uses: actions/checkout@v4
 
@@ -36,12 +38,12 @@ jobs:
           BASE="${{ steps.registry.outputs.host }}/${{ steps.registry.outputs.image }}"
           VERSION="${GITHUB_REF_NAME#v}"
           MAJOR_MINOR="${VERSION%.*}"
-          EXTRA="${{ matrix.extra }}"
+          ENGINE="${{ matrix.engine }}"
           SUFFIX=""
           MOVING="latest"
-          if [ -n "$EXTRA" ]; then
-            SUFFIX="-$EXTRA"
-            MOVING="$EXTRA"
+          if [ "$ENGINE" != "semif" ]; then
+            SUFFIX="-$ENGINE"
+            MOVING="$ENGINE"
           fi
           {
             echo "tags<<TAGEOF"
@@ -65,5 +67,6 @@ jobs:
           context: .
           push: true
           build-args: |
-            ENGINE_EXTRA=${{ matrix.extra }}
+            ENGINE=${{ matrix.engine }}
+            ENGINE_EXTRA=${{ matrix.engine == 'laya' && 'laya' || '' }}
           tags: ${{ steps.tags.outputs.tags }}

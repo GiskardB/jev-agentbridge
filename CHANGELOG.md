@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.3.1
+
+- Change: Docker images now bake in the engine selection (`JEV_ENGINE` is set via the Dockerfile's
+  `ENGINE` build arg / `ENV`). Pulling `:laya`, `:semif`, or `:rizzoflow` no longer requires
+  `-e JEV_ENGINE=...` — the tag alone determines the runtime engine. Override at runtime with
+  `-e JEV_ENGINE=...` if needed.
+- Add: `:rizzoflow` image variant — a general JEV integration point that talks to any
+  RizzoFlow-compatible server you run yourself (set `JEV_RIZZOFLOW_URL`).
+- Change: release and CI workflows now build all three engine variants (`semif`, `laya`,
+  `rizzoflow`) instead of `["", "laya"]`; only `laya` still carries extra Python deps
+  (`ENGINE_EXTRA=laya`).
+- Docs: rewrote README's "What is this" and Pluggable engines section to match the new tag
+  convention; updated `docs/architecture.md`, `docs/integration.md`, `docs/api.md`, and
+  `docker-compose.yml`.
+
 ## 0.3.0
 
 - Add: `RizzoFlowEngine` (`JEV_ENGINE=rizzoflow`) — a thin, stdlib-only HTTP client to a separately-run

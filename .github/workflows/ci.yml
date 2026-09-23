@@ -28,7 +28,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        extra: ["", "laya"]
+        # Test all engine variants build correctly.
+        engine: ["semif", "laya", "rizzoflow"]
     steps:
       - uses: actions/checkout@v4
 
@@ -40,7 +41,8 @@ jobs:
           context: .
           push: false
           build-args: |
-            ENGINE_EXTRA=${{ matrix.extra }}
+            ENGINE=${{ matrix.engine }}
+            ENGINE_EXTRA=${{ matrix.engine == 'laya' && 'laya' || '' }}
 
   opencode-plugin:
     runs-on: ubuntu-latest

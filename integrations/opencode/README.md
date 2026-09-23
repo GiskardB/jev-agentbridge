@@ -58,6 +58,8 @@ The tool result's `output` field is the Bridge's JSON response as a string:
 }
 ```
 
+*(`engine` in the metadata reflects the image you ran — `semif` is the default.)*
+
 Verified end-to-end with the real `opencode` CLI (`opencode-ai` on npm) and a live OpenRouter model:
 the agent called `jev_decide`, got back `retry` at p=0.77, and reported it correctly. Two real bugs
 were found and fixed doing that verification — see [CHANGELOG.md](../../CHANGELOG.md):

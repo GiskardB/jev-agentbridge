@@ -2,8 +2,10 @@ name: publish-opencode-plugin
 
 # Separate release cadence from the Docker images (release.yml): this package
 # versions independently, so it's tagged opencode-vX.Y.Z instead of vX.Y.Z.
-# Requires an NPM_TOKEN repo secret (npmjs.com automation token with publish
-# rights on the opencode-jev-agentbridge package) before the first tag push.
+# Requires an NPM_TOKEN repo secret with publish rights on opencode-jev-agentbridge
+# before the first tag push. Must be a classic "Automation" token, or a Granular
+# Access Token with "bypass 2FA" explicitly enabled — a Granular token without
+# that flag gets `403 Forbidden` from `npm publish` even with write access.
 on:
   push:
     tags:

@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+- Add: the OpenCode plugin is now published to npm as
+  [`opencode-jev-agentbridge`](https://www.npmjs.com/package/opencode-jev-agentbridge) —
+  `{"plugin": ["opencode-jev-agentbridge"]}` in `opencode.json` is now enough, no local clone
+  needed. Released independently from the Docker images via `opencode-vX.Y.Z` tags
+  (`.github/workflows/publish-opencode-plugin.yml`), starting at `0.1.0`.
+- Fix: the skill (`SKILL.md`) lived at `integrations/opencode/skill/SKILL.md`, a path OpenCode
+  never scans for auto-discovery (it only loads `skills/<name>/SKILL.md` under `.opencode/`,
+  `.claude/`, `.agents/`, or the global skills dir) — the agent never saw it and only called
+  `jev_decide` when told to explicitly. Moved to `integrations/opencode/skills/jev-cpu-agentbridge/`
+  and rewrote it: a tighter decision gate, explicit false-positive cases, and the `accepted=false`
+  semantics (not "no", not "retry" — hand back to the agent), which were undocumented before.
+- Note: publishing found a real gotcha — `npm publish` returns `403 Forbidden` for a Granular
+  Access Token unless "bypass 2FA" is explicitly enabled on it; a classic **Automation** token
+  works out of the box and is what `NPM_TOKEN` should be.
+
 ## 0.3.1
 
 - Change: Docker images now bake in the engine selection (`JEV_ENGINE` is set via the Dockerfile's

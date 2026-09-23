@@ -108,6 +108,13 @@ ends right after the option list, so the next token is rarely the letter. v2 app
 `"\n\nAnswer:"`. It stays opt-in (`JEV_SEMIF_PROMPT_VERSION=direct-options-v2`) until it is
 validated on a larger dataset. A chat-template variant was also tried (8/12 EN) and is not shipped.
 
+A larger, use-case-specific evaluation lives in
+[`examples/eval/model_routing/`](../examples/eval/model_routing/). It has 240 labelled requests
+for choosing the LLM tier (small / medium / large), a stdlib-only runner, and step-by-step
+instructions another agent can execute. On it, laya's English model reached 59.6% overall
+(EN 70.0%, IT 49.2%) and covered only 12.1% of requests at 95% accuracy. The multilingual model
+reached 34.6%. Three-way routing is clearly harder than the samples above.
+
 Twelve rows are far too few for a production threshold. Even laya accepted confident mistakes:
 it chose `retry` at p=0.946 when four identical failures in a row called for `rollback`. Build
 200–500 real examples per decision type and let `jev-eval` pick the threshold.

@@ -108,13 +108,39 @@ ends right after the option list, so the next token is rarely the letter. v2 app
 `"\n\nAnswer:"`. It stays opt-in (`JEV_SEMIF_PROMPT_VERSION=direct-options-v2`) until it is
 validated on a larger dataset. A chat-template variant was also tried (8/12 EN) and is not shipped.
 
-A larger, use-case-specific evaluation lives in
-[`examples/eval/model_routing/`](../examples/eval/model_routing/). It has 240 labelled requests
-for choosing the LLM tier (small / medium / large), a stdlib-only runner, and step-by-step
-instructions another agent can execute. On it, laya's English model reached 59.6% overall
-(EN 70.0%, IT 49.2%) and covered only 12.1% of requests at 95% accuracy. The multilingual model
-reached 34.6%. Three-way routing is clearly harder than the samples above.
-
 Twelve rows are far too few for a production threshold. Even laya accepted confident mistakes:
 it chose `retry` at p=0.946 when four identical failures in a row called for `rollback`. Build
 200–500 real examples per decision type and let `jev-eval` pick the threshold.
+
+
+### Measured: model routing (240 requests)
+
+[`examples/eval/model_routing/`](../examples/eval/model_routing/) is a use-case evaluation: choose
+the LLM tier (small / medium / large) for 240 hand-labelled requests, 120 Italian and 120
+English. It was executed by a separate agent following its `INSTRUCTIONS.md`, using the 0.4.0
+images. The laya numbers match an independent run to the decimal. Full output is in
+[`results/REPORT.md`](../examples/eval/model_routing/results/REPORT.md) and
+[`results/FINDINGS.md`](../examples/eval/model_routing/results/FINDINGS.md).
+
+| Configuration | Accuracy | EN | IT | Threshold for ≥ 95% | Coverage | p50 latency |
+|---|---|---|---|---|---|---|
+| LLM baseline: qwen3-32b via OpenRouter, temperature 0 | **96.2%** | 95.8% | 96.7% | n/a (no probability) | n/a | ~9.1 s (reasoning enabled) |
+| laya, English model (default) | 59.6% | 70.0% | 49.2% | 0.55 | 12.1% | ~970 ms |
+| semif, `direct-options-v2` | 51.7% | 56.7% | 46.7% | never reached | 0% | ~1.4 s |
+| semif, `direct-options-v1` | 37.5% | 41.7% | 33.3% | 0.65 | 7.1% | ~1.4 s |
+| laya, multilingual model | 34.6% | 37.5% | 31.7% | never reached | 0% | ~290 ms |
+| Always answer "medium" (floor) | 33.3% | | | | | |
+
+What this shows:
+
+- **The task is learnable and the labels hold up.** The LLM gets 96.2% in both languages. The
+  gap is in today's JEV models, not in the dataset or in the bridge.
+- **laya (English model) is the best JEV option but is not a router yet.** It sends most small
+  and large requests to `medium`. Its probabilities never exceed about 0.73, so at the 0.55
+  threshold it takes only 29 of 240 requests (28 correct), all of them English.
+- **Italian gets no coverage** from any JEV configuration at the 95% target.
+- **The multilingual Laya model and semif v1 have strong, opposite biases** (toward `small` and
+  toward `large`). Do not use them for this task.
+- **Latency does not compensate on its own.** At about 1 s per decision on the evaluator's
+  machine, laya is 9× faster than a reasoning LLM, but a non-reasoning LLM classifier may be
+  comparable. Measure both on your hardware before counting on a speed win.

@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Docs: README rewritten around what the project is. It is a standardization bridge toward JEV
+  decision models: one versioned contract, SDKs and error model for agents, with each JEV engine
+  plugged in as an adapter and measured the same way. A new table lists what the bridge
+  normalizes across engines. A new "What it is not" section reports measured engine quality
+  honestly, including the LLM baseline.
+- Docs: `docs/performance.md` now has the full model-routing results from the external
+  evaluation run. The LLM baseline (qwen3-32b) scored 96.2%, against 59.6% for the best JEV
+  configuration.
 - Add: `examples/eval/model_routing/`, a model-routing evaluation (small / medium / large LLM
   tier). It has 240 hand-labelled requests (120 IT, 120 EN, balanced), labelling rules, and
   `run_eval.py` (stdlib only). The runner evaluates any running Bridge, scores external

@@ -16,6 +16,7 @@ dependencies = [
     "python-dotenv>=1.0.0",
     # laya is the default engine since 0.4.0, so it is a core dependency now.
     "laya>=0.3.0",
+    "mcp>=2.2",
 ]
 
 [project.optional-dependencies]

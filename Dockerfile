@@ -9,6 +9,8 @@ COPY pyproject.toml uv.lock ./
 # All engines' dependencies are core dependencies, so the install is the same.
 ARG ENGINE=laya
 ENV JEV_ENGINE=${ENGINE}
+# Bound to all interfaces in the container, so the MCP endpoint accepts any Host header.
+ENV JEV_HOST=0.0.0.0
 RUN uv sync --frozen --no-dev
 
 COPY src/ ./src/

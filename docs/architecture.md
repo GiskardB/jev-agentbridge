@@ -45,6 +45,7 @@ them.
 | Layer | Package | Owns | Knows about engines? |
 |---|---|---|---|
 | REST contract | `api/` | Request/response schemas (`schemas.py`), routes, error envelope, OpenAPI | No |
+| MCP layer | `api/mcp.py` | `/mcp` endpoint (streamable HTTP) with `jev_decide`, `jev_decide_batch`, `jev_info`, calling the same `DecisionService` | No |
 | Domain + policy | `core/` | `Option`, `Decision`, `Scores`, `DecisionResult`; validation, argmax, acceptance threshold, timing, standard metadata, domain errors | No |
 | Port | `core/ports.py` | `DecisionAdapter` protocol + `EngineInfo` | Defines the contract |
 | Adapters | `adapters/<name>/` | Scoring only: turn a `Decision` into one probability per option id; own config from own env vars | Each knows only itself |

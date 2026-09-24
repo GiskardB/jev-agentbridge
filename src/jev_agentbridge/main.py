@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 from typing import AsyncIterator
 
 from fastapi import FastAPI
@@ -25,10 +25,20 @@ def create_app(
     """Build the app.
 
     Without `adapter`, the one named by `settings.engine` (JEV_ENGINE) is built at
-    startup. Passing an adapter (tests, embedding) skips the registry entirely.
+    startup. Passing an adapter (tests, embedding) skips the registry entirely. The MCP
+    endpoint (`/mcp`) is served by the same app and the same DecisionService.
     """
 
     settings = settings or Settings.from_env()
+    mcp = None
+    if settings.mcp_enabled:
+        from .api.mcp import create_mcp_server
+
+        mcp = create_mcp_server(lambda: app.state.service)
+        # DNS-rebinding protection is on when bound to localhost and off on 0.0.0.0 (Docker).
+        mcp_app = mcp.streamable_http_app(
+            stateless_http=True, json_response=True, host=settings.host
+        )
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -40,7 +50,10 @@ def create_app(
                 create_adapter(settings.engine),
                 default_threshold=settings.min_selected_probability,
             )
-        yield
+        async with AsyncExitStack() as stack:
+            if mcp is not None:
+                await stack.enter_async_context(mcp.session_manager.run())
+            yield
 
     app = FastAPI(title="JEV-AgentBridge", version=__version__, lifespan=lifespan)
     app.state.service = (
@@ -50,6 +63,8 @@ def create_app(
     )
     install_error_handlers(app)
     app.include_router(create_router(lambda: app.state.service))
+    if mcp is not None:
+        app.router.routes.extend(mcp_app.routes)  # POST/GET /mcp, streamable HTTP
     return app
 
 

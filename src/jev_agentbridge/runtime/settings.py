@@ -14,6 +14,7 @@ class Settings:
     port: int = 8000
     engine: str = "laya"  # best measured in-process engine; see docs/performance.md
     min_selected_probability: float = 0.60
+    mcp_enabled: bool = True
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -21,6 +22,7 @@ class Settings:
             host=os.getenv("JEV_HOST", cls.host),
             port=int(os.getenv("JEV_PORT", str(cls.port))),
             engine=os.getenv("JEV_ENGINE", cls.engine),
+            mcp_enabled=os.getenv("JEV_MCP_ENABLED", "true").lower() not in ("0", "false", "no"),
             min_selected_probability=float(
                 os.getenv("JEV_MIN_SELECTED_PROBABILITY", str(cls.min_selected_probability))
             ),

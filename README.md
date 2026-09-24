@@ -40,10 +40,10 @@ flowchart LR
     subgraph Clients["Your code (integrates once)"]
         Orch["Orchestrator<br/>Java · Node · Python"]
         SDK["SDKs<br/>Python · TypeScript"]
-        Tools["Agent tools<br/>OpenCode · LangChain"]
+        Tools["Coding agents via MCP<br/>Claude Code · Codex · Cursor"]
     end
     subgraph Bridge["JEV-AgentBridge"]
-        API["Standard API v1<br/>/v1/decide · /v1/decide/batch"]
+        API["Standard API v1<br/>REST /v1/decide · MCP /mcp"]
         Core["DecisionService<br/>validation · threshold<br/>metadata · errors"]
         Eval["jev-eval<br/>same measurement<br/>for every engine"]
     end
@@ -231,8 +231,8 @@ console.log(outcome.decisionId, outcome.source); // "jev" | "fallback"
 
 It is plain JSON over HTTP, so Java or any other language needs no SDK; see
 [docs/integration.md](docs/integration.md) for Node, Python and Java examples. Exposing JEV as a
-tool that the LLM calls also works (see [Integrations](#integrations)), but it does not reduce
-LLM cost: the LLM is already running when it emits the tool call.
+tool that the LLM calls, over MCP, also works (see [Integrations](#integrations)), but it does
+not reduce LLM cost: the LLM is already running when it emits the tool call.
 
 ## Measuring an engine before trusting it
 
@@ -276,66 +276,23 @@ templates and a checklist, is **[docs/adding-an-engine.md](docs/adding-an-engine
 
 ## Integrations
 
-| Integration | Status |
+| Integration | What you get |
 |---|---|
-| Python SDK ([sdk/python](sdk/python/)) | `decide`, `decide_batch`, `decide_or_fallback` |
+| **MCP** at `/mcp` ([docs/mcp.md](docs/mcp.md)) | `jev_decide`, `jev_decide_batch` and `jev_info` tools for any MCP-capable agent harness, served by the bridge itself. Verified with Claude Code, OpenCode and Gemini CLI; configuration also given for Codex CLI, Cursor, VS Code and Windsurf |
+| Agent skill ([integrations/skills/jev-agentbridge](integrations/skills/jev-agentbridge/)) | Optional `SKILL.md` that teaches an agent when to call the tools and how to read `accepted` |
+| Python SDK ([sdk/python](sdk/python/)) | `decide`, `decide_batch`, `decide_or_fallback` for your own code |
 | TypeScript SDK ([sdk/typescript](sdk/typescript/)) | `decide`, `decideBatch`, `decideOrFallback`, typed `BridgeError` |
-| OpenCode ([integrations/opencode](integrations/opencode/), npm [`opencode-jev-agentbridge`](https://www.npmjs.com/package/opencode-jev-agentbridge)) | `jev_decide` tool plus an auto-installed skill, verified against the real OpenCode CLI |
-| LangChain, CrewAI, OpenAI and Anthropic tool use | Generic snippets below; not tested end to end |
+| Plain HTTP | Any language: see [docs/api.md](docs/api.md) and the Java example in [docs/integration.md](docs/integration.md) |
 
-<details>
-<summary><strong>OpenCode</strong></summary>
+Connecting a coding agent takes one command or config entry, for example in Claude Code:
 
-1. Register the plugin in `opencode.json`: `{ "plugin": ["opencode-jev-agentbridge"] }`
-2. Point it at your bridge: `JEV_AGENTBRIDGE_URL=http://localhost:8000`
-3. On first load the plugin installs its skill into `.opencode/skills/`, which tells the agent
-   when to use the `jev_decide` tool.
-
-Full details, including how to install from this repo:
-[integrations/opencode/README.md](integrations/opencode/README.md).
-</details>
-
-<details>
-<summary><strong>LangChain / LangGraph, CrewAI</strong></summary>
-
-```python
-from langchain_core.tools import tool          # CrewAI: from crewai.tools import tool
-from jev_agent_bridge import AgentBridgeClient
-
-client = AgentBridgeClient("http://localhost:8000")
-
-@tool
-def jev_decide(state: str, question: str, options: list[dict]) -> dict:
-    """Pick one of 2-16 known options with a local JEV model."""
-    return client.decide(state=state, question=question, options=options)
+```bash
+claude mcp add --transport http jev http://localhost:8000/mcp
 ```
-</details>
 
-<details>
-<summary><strong>OpenAI function calling / Anthropic tool use</strong></summary>
-
-Declare a `jev_decide` tool with this schema, which mirrors `POST /v1/decide`. When the model
-calls it, forward the input to the bridge and return the JSON as the tool result.
-
-```json
-{
-  "name": "jev_decide",
-  "description": "Pick one of 2-16 known options with a local JEV model.",
-  "parameters": {
-    "type": "object",
-    "properties": {
-      "state": {"type": "string"},
-      "question": {"type": "string"},
-      "options": {
-        "type": "array",
-        "items": {"type": "object", "properties": {"id": {"type": "string"}, "description": {"type": "string"}}}
-      }
-    },
-    "required": ["state", "question", "options"]
-  }
-}
-```
-</details>
+Configurations for the other harnesses are in [docs/mcp.md](docs/mcp.md). An agent calling JEV
+as a tool does not save LLM tokens: its LLM is already running. For that, use the REST gate
+pattern from your own code.
 
 ## Releases & CI
 
@@ -354,6 +311,7 @@ calls it, forward the input to the bridge and return the JSON as the tool result
 - [Adding an engine](docs/adding-an-engine.md): contract, templates, tests and measurements for a new JEV engine
 - [API reference](docs/api.md): the v1 contract and error codes
 - [Integration guide](docs/integration.md): the gate pattern in Node, Python and Java
+- [MCP](docs/mcp.md): tools for coding agents (Claude Code, Codex, Cursor, VS Code, Gemini CLI, OpenCode)
 - [Performance and accuracy](docs/performance.md): latency benchmarks and every accuracy measurement
 
 ## License

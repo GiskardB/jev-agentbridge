@@ -26,8 +26,9 @@ RUN uv venv /opt/venv \
 
 COPY serve.py /opt/serve.py
 
-# KEV_RUN: jaredpalmer/kev-0.8b (CPU), kev-4b or kev-9b (GPU). Append @<revision> to pin weights.
-ENV KEV_RUN=jaredpalmer/kev-0.8b \
+# KEV_RUN: jaredpalmer/kev-0.8b (CPU), kev-4b or kev-9b (GPU), pinned to a revision for
+# reproducible results (@<revision>; drop it, or bump it deliberately, for the latest weights).
+ENV KEV_RUN=jaredpalmer/kev-0.8b@9a45d25eb2ab761841196625383fa1dff0e56c1e \
     KEV_HOST=0.0.0.0 \
     KEV_PORT=8009
 

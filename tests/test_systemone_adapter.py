@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 import json
 import urllib.error
 
@@ -97,7 +98,11 @@ def test_unreachable_server_is_engine_unavailable(monkeypatch: pytest.MonkeyPatc
 
 def test_http_error_is_engine_error(monkeypatch: pytest.MonkeyPatch) -> None:
     def reject(request, timeout=None):
-        raise urllib.error.HTTPError(request.full_url, 401, "unauthorized", {}, None)
+        # A real HTTPError from urlopen always carries a real (bytes-producing) fp; None
+        # doesn't reproduce that (its .read() behavior isn't guaranteed across Python versions).
+        raise urllib.error.HTTPError(
+            request.full_url, 401, "unauthorized", {}, io.BytesIO(b"unauthorized")
+        )
 
     monkeypatch.setattr(URLOPEN, reject)
     with pytest.raises(EngineError, match="401"):
@@ -110,3 +115,12 @@ def test_kev_preset_reads_its_own_env(monkeypatch: pytest.MonkeyPatch) -> None:
     info = registry.create_adapter("kev").info()
     assert (info.name, info.model, info.revision) == ("kev", "kev-9b", "http://gpu-box:8009")
     assert registry.create_adapter("systemone").info().name == "systemone"
+
+
+def test_kev_preset_reports_pinned_model_revision(monkeypatch: pytest.MonkeyPatch) -> None:
+    # System One's response only ever carries a static model label ("kev-latest"), never the
+    # actual checkpoint, so the operator has to say what they pinned the server to.
+    pinned = "jaredpalmer/kev-0.8b@9a45d25eb2ab761841196625383fa1dff0e56c1e"
+    monkeypatch.setenv("JEV_KEV_MODEL_REVISION", pinned)
+    info = registry.create_adapter("kev").info()
+    assert info.revision == pinned

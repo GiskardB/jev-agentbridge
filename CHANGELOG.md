@@ -1,5 +1,25 @@
 # Changelog
 
+## Unreleased
+
+- Add: `JEV_KEV_MODEL_REVISION` / `JEV_SYSTEMONE_MODEL_REVISION` on the System One adapter,
+  reported as `EngineInfo.revision` (and so in `/v1/info` and response `metadata`). System
+  One's `/v1/systemone` response only ever carries a static model label (`"kev-latest"`), never
+  the actual checkpoint, so an unpinned remote server can silently change weights between two
+  measurements with nothing in the bridge's own output to show it. Found by re-measuring the
+  `:kev` 0.6.0 image against `examples/eval/model_routing`: accuracy came back at 77.9% against
+  the 80.4% already on record, on an admittedly unpinned `KEV_RUN` (`question_types`, a
+  different suite against the same running weights, matched its own recorded numbers exactly,
+  so the 2.5-point model-routing gap isn't fully explained yet either).
+- Fix: `docker-compose.kev.yml` and `docker/kev-server/Dockerfile` now default `KEV_RUN` to a
+  pinned revision (`jaredpalmer/kev-0.8b@9a45d25e...`) instead of a bare `jaredpalmer/kev-0.8b`,
+  and the bridge service sets `JEV_KEV_MODEL_REVISION` to the same value automatically. Kev's
+  own code was already pinned (`KEV_REF` in the Dockerfile); only the model weights were not.
+- Fix: `tests/test_systemone_adapter.py::test_http_error_is_engine_error` built its mock
+  `HTTPError` with `fp=None`; `HTTPError.read()` with no `fp` doesn't reliably return `bytes`
+  across Python versions (returned `""` here), which made `.decode()` in the adapter's error
+  path crash instead of the error it meant to test. Fixed with a real `io.BytesIO` body.
+
 ## 0.6.0
 
 - Add: **the three JEV question types** on every endpoint: `choice` (one category, the

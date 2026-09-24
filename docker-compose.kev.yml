@@ -11,8 +11,9 @@ services:
     build: ./docker/kev-server
     environment:
       # kev-0.8b runs on CPU. kev-4b / kev-9b need a GPU image (see docker/kev-server/Dockerfile)
-      # and the `deploy` block below. Append @<revision> to pin the weights.
-      - KEV_RUN=${KEV_RUN:-jaredpalmer/kev-0.8b}
+      # and the `deploy` block below. Pinned to a revision so results are reproducible; override
+      # KEV_RUN (same value used below for JEV_KEV_MODEL_REVISION) to move to a newer snapshot.
+      - KEV_RUN=${KEV_RUN:-jaredpalmer/kev-0.8b@9a45d25eb2ab761841196625383fa1dff0e56c1e}
     volumes:
       - kev-hf-cache:/root/.cache/huggingface
     # Not published: only the bridge talks to Kev. Uncomment to call Kev directly.
@@ -36,6 +37,9 @@ services:
       - "8000:8000"
     environment:
       - JEV_KEV_URL=http://kev:8009
+      # Same value as `kev`'s KEV_RUN above: System One's response never reports the actual
+      # checkpoint, only a static "kev-latest" label, so the bridge can't discover this itself.
+      - JEV_KEV_MODEL_REVISION=${KEV_RUN:-jaredpalmer/kev-0.8b@9a45d25eb2ab761841196625383fa1dff0e56c1e}
       # true sends noul/score questions to Kev's native path; default false asks them as a choice.
       - JEV_NATIVE_TYPES=${JEV_NATIVE_TYPES:-false}
     depends_on:

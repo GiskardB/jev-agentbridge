@@ -26,18 +26,28 @@ class SystemOneConfig:
     engine_name: str = "systemone"
     base_url: str = "http://localhost:8009"
     model: str | None = None
+    model_revision: str | None = None
     api_key: str | None = None
     timeout_seconds: float = 60.0
 
     @classmethod
     def from_env(cls, prefix: str, **defaults: Any) -> "SystemOneConfig":
-        """Read `<prefix>_URL`, `_MODEL`, `_API_KEY`, `_TIMEOUT_SECONDS`, e.g. JEV_KEV_URL."""
+        """Read `<prefix>_URL`, `_MODEL`, `_MODEL_REVISION`, `_API_KEY`, `_TIMEOUT_SECONDS`,
+        e.g. JEV_KEV_URL.
+
+        `_MODEL_REVISION` exists because System One's `/v1/systemone` response only ever
+        reports a static model label (e.g. "kev-latest"), never the actual checkpoint - the
+        server-side weights can change (an unpinned `KEV_RUN`) without the bridge knowing.
+        Set it to whatever you pinned the remote server to, so `/v1/info` and response
+        metadata report something that actually identifies the weights in use.
+        """
 
         base = cls(**defaults)
         return cls(
             engine_name=base.engine_name,
             base_url=os.getenv(f"{prefix}_URL", base.base_url),
             model=os.getenv(f"{prefix}_MODEL", base.model or "") or None,
+            model_revision=os.getenv(f"{prefix}_MODEL_REVISION") or base.model_revision,
             api_key=os.getenv(f"{prefix}_API_KEY") or base.api_key,
             timeout_seconds=float(
                 os.getenv(f"{prefix}_TIMEOUT_SECONDS", str(base.timeout_seconds))
@@ -106,7 +116,7 @@ class SystemOneAdapter:
         return EngineInfo(
             name=self._config.engine_name,
             model=self._config.model or "server default",
-            revision=self._base_url,
+            revision=self._config.model_revision or self._base_url,
             native_batch=True,  # every question of a batch goes in one request
             thread_safe=True,  # stateless HTTP client
             native_types=frozenset({"choice", "noul", "score"}),

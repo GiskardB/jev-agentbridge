@@ -140,8 +140,8 @@ package in `adapters/<name>/` plus one line in `adapters/registry.py`. Nothing i
 | `:latest` / `:laya` | `laya` (default) | Laya encoder, non-autoregressive | `JEV_LAYA_MODEL_NAME`, `JEV_LAYA_SUBFOLDER` (default `multilingual`; `english` for the English model), `JEV_MODEL_DEVICE` |
 | `:semif` | `semif` | Causal LM, next-token scoring of option letters A–P | `JEV_MODEL_NAME`, `JEV_MODEL_REVISION`, `JEV_MODEL_DEVICE`, `JEV_MAX_INPUT_TOKENS`, `JEV_SEMIF_PROMPT_VERSION` (`direct-options-v1` default, `direct-options-v2` recommended) |
 | `:rizzoflow` | `rizzoflow` | HTTP client to a separately-run RizzoFlow server (native `/v1/decisions`) | `JEV_RIZZOFLOW_URL`, `JEV_RIZZOFLOW_TIMEOUT_SECONDS` |
-| `:kev` | `kev` | System One client preset for a [Kev](https://github.com/jaredpalmer/kev) server (`python -m kev.serve`) | `JEV_KEV_URL` (default `http://localhost:8009`), `JEV_KEV_MODEL` (default `kev-latest`), `JEV_KEV_API_KEY`, `JEV_KEV_TIMEOUT_SECONDS` |
-| any, with `-e JEV_ENGINE=systemone` | `systemone` | Generic System One client: hosted Jev, Kev, RizzoFlow or any compatible server | `JEV_SYSTEMONE_URL`, `JEV_SYSTEMONE_MODEL`, `JEV_SYSTEMONE_API_KEY`, `JEV_SYSTEMONE_TIMEOUT_SECONDS` |
+| `:kev` | `kev` | System One client preset for a [Kev](https://github.com/jaredpalmer/kev) server (`python -m kev.serve`) | `JEV_KEV_URL` (default `http://localhost:8009`), `JEV_KEV_MODEL` (default `kev-latest`), `JEV_KEV_MODEL_REVISION` (what you pinned the server's `KEV_RUN` to — System One's response never reports it), `JEV_KEV_API_KEY`, `JEV_KEV_TIMEOUT_SECONDS` |
+| any, with `-e JEV_ENGINE=systemone` | `systemone` | Generic System One client: hosted Jev, Kev, RizzoFlow or any compatible server | `JEV_SYSTEMONE_URL`, `JEV_SYSTEMONE_MODEL`, `JEV_SYSTEMONE_MODEL_REVISION`, `JEV_SYSTEMONE_API_KEY`, `JEV_SYSTEMONE_TIMEOUT_SECONDS` |
 
 Service-wide settings: `JEV_ENGINE`, `JEV_MIN_SELECTED_PROBABILITY` (default threshold, 0.60),
 `JEV_NATIVE_TYPES` (default `false`: noul and score are asked as a choice; `true` or a list

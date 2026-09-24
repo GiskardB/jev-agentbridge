@@ -1,7 +1,7 @@
 # Architecture
 
-JEV-CPU-AgentBridge is a **standard decision REST API** with **pluggable engine adapters**
-behind it (ports & adapters). Clients only ever see the v1 contract; which JEV-style engine
+JEV-CPU-AgentBridge is the **standardization bridge toward JEV decision models**: a standard
+decision REST API with **pluggable engine adapters** behind it (ports & adapters). Clients only ever see the v1 contract; which JEV-style engine
 scores the options is an implementation detail chosen at deploy time.
 
 ```mermaid

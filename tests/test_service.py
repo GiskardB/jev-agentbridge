@@ -4,15 +4,15 @@ from __future__ import annotations
 
 import pytest
 
-from jev_cpu_agentbridge.core.errors import (
+from jev_agentbridge.core.errors import (
     DuplicateOptionIdError,
     EngineError,
     EngineNotReadyError,
     InvalidDecisionError,
     OptionCountError,
 )
-from jev_cpu_agentbridge.core.models import Decision, Option, Scores
-from jev_cpu_agentbridge.core.service import DecisionService
+from jev_agentbridge.core.models import Decision, Option, Scores
+from jev_agentbridge.core.service import DecisionService
 from tests.conftest import FakeAdapter
 
 TWO = (Option("a", "A"), Option("b", "B"))

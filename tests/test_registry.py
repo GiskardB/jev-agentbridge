@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from jev_cpu_agentbridge.adapters import registry
-from jev_cpu_agentbridge.core.ports import DecisionAdapter
+from jev_agentbridge.adapters import registry
+from jev_agentbridge.core.ports import DecisionAdapter
 from tests.conftest import FakeAdapter
 
 
@@ -21,12 +21,12 @@ def test_create_adapter_dispatches(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_known_engines_are_registered() -> None:
-    assert {"semif", "laya", "rizzoflow"} <= set(registry.available_engines())
+    assert {"semif", "laya", "rizzoflow", "kev", "systemone"} <= set(registry.available_engines())
 
 
 def test_adapters_satisfy_the_port() -> None:
-    from jev_cpu_agentbridge.adapters.laya.adapter import LayaAdapter
-    from jev_cpu_agentbridge.adapters.rizzoflow.adapter import RizzoFlowAdapter
+    from jev_agentbridge.adapters.laya.adapter import LayaAdapter
+    from jev_agentbridge.adapters.rizzoflow.adapter import RizzoFlowAdapter
     from tests.conftest import make_adapter
 
     assert isinstance(make_adapter(), DecisionAdapter)
@@ -36,6 +36,6 @@ def test_adapters_satisfy_the_port() -> None:
 
 
 def test_laya_is_the_default_engine() -> None:
-    from jev_cpu_agentbridge.runtime.settings import Settings
+    from jev_agentbridge.runtime.settings import Settings
 
     assert Settings().engine == "laya"

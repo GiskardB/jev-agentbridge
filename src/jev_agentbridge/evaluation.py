@@ -10,7 +10,7 @@ Dataset: JSONL, one labelled decision per line:
 
 Usage:
     jev-eval --dataset examples/eval/sample.jsonl --url http://localhost:8000
-    python -m jev_cpu_agentbridge.evaluation --dataset data.jsonl --target-accuracy 0.97
+    python -m jev_agentbridge.evaluation --dataset data.jsonl --target-accuracy 0.97
 
 For each threshold it reports coverage (share of decisions JEV would answer on its own)
 and accuracy on those accepted decisions. The recommended threshold is the lowest one

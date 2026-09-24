@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from jev_cpu_agentbridge.adapters.laya.adapter import LayaAdapter
-from jev_cpu_agentbridge.core.models import Decision, Option
-from jev_cpu_agentbridge.core.service import DecisionService
+from jev_agentbridge.adapters.laya.adapter import LayaAdapter
+from jev_agentbridge.core.models import Decision, Option
+from jev_agentbridge.core.service import DecisionService
 
 
 class _FakeAgent:

@@ -17,7 +17,7 @@ jobs:
         # JEV_ENGINE ENV (ENGINE build arg), so the image tag alone determines
         # the runtime engine — no -e JEV_ENGINE needed. laya is the default
         # engine and gets :latest (plus :laya); the others get suffixed tags.
-        engine: ["laya", "semif", "rizzoflow"]
+        engine: ["laya", "semif", "rizzoflow", "kev"]
     steps:
       - uses: actions/checkout@v4
 

@@ -1,7 +1,7 @@
 {
-  "name": "@jev-cpu/agentbridge",
+  "name": "jev-agentbridge-sdk",
   "version": "0.1.0",
-  "description": "TypeScript SDK for JEV-CPU-AgentBridge",
+  "description": "TypeScript SDK for JEV-AgentBridge",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

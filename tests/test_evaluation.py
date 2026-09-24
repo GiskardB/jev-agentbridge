@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from jev_cpu_agentbridge.evaluation import Prediction, load_dataset, summarize
+from jev_agentbridge.evaluation import Prediction, load_dataset, summarize
 
 SAMPLE = Path(__file__).resolve().parents[1] / "examples" / "eval" / "sample.jsonl"
 

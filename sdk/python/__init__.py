@@ -1,4 +1,4 @@
-"""Python SDK for JEV-CPU-AgentBridge."""
+"""Python SDK for JEV-AgentBridge."""
 
 from .jev_agent_bridge import AgentBridgeClient
 

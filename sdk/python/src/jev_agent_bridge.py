@@ -1,4 +1,4 @@
-"""Python SDK for JEV-CPU-AgentBridge."""
+"""Python SDK for JEV-AgentBridge."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ class GateOutcome:
 
 
 class AgentBridgeClient:
-    """Minimal Python SDK client for JEV-CPU-AgentBridge."""
+    """Minimal Python SDK client for JEV-AgentBridge."""
 
     def __init__(self, base_url: str = "http://localhost:8000", timeout: float = 30.0) -> None:
         self._base_url = base_url.rstrip("/")

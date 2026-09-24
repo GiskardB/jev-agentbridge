@@ -116,3 +116,9 @@ Every error, whatever produces it, has the same envelope:
 
 Clients using JEV as a gate should treat any 5xx the same as `accepted=false` and fall back.
 The SDK helpers already do.
+
+## MCP
+
+The same decisions are available as Model Context Protocol tools at `/mcp` (streamable HTTP):
+`jev_decide`, `jev_decide_batch` and `jev_info`, with the same arguments, results and error codes
+as the endpoints above. See [mcp.md](mcp.md).

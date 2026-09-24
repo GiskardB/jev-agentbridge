@@ -12,7 +12,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from ..core.errors import DecisionError
 
-logger = logging.getLogger("jev_cpu_agentbridge")
+logger = logging.getLogger("jev_agentbridge")
 
 
 def error_response(status_code: int, code: str, message: str) -> JSONResponse:

@@ -1,7 +1,43 @@
 # Changelog
 
-## Unreleased
+## 0.5.0
 
+- **Rename: the project is now JEV-AgentBridge (`jev-agentbridge`).** The CPU restriction was
+  never an architectural one: remote engines run on whatever hardware their server has, and
+  in-process engines honour `JEV_MODEL_DEVICE`.
+  - Python package `jev_cpu_agentbridge` → `jev_agentbridge`; distribution `jev-agentbridge`.
+    **Breaking for library imports and for `uvicorn jev_cpu_agentbridge.main:app`.** Docker
+    users are unaffected: the image was already `ghcr.io/giskardb/jev-agentbridge`.
+  - SDKs: Python `jev-agentbridge-sdk` (import name `jev_agent_bridge` unchanged), TypeScript
+    `jev-agentbridge-sdk`.
+- Add: **System One adapter** (`adapters/systemone/`), an HTTP client for TypeSafe's System One
+  protocol (`POST /v1/systemone`), which hosted Jev, Kev and RizzoFlow all serve. It is
+  registered twice: `JEV_ENGINE=systemone` (generic, `JEV_SYSTEMONE_*`) and `JEV_ENGINE=kev` (a
+  preset for [Kev](https://github.com/jaredpalmer/kev): `JEV_KEV_URL` default
+  `http://localhost:8009`, model `kev-latest`). Supports bearer auth, one request per batch,
+  and maps failures to `ENGINE_UNAVAILABLE` / `ENGINE_ERROR`. A `:kev` image is added to CI and
+  release. Verified end to end against a real `kev.serve` (Kev-0.8B on CPU).
+- Docs: new [docs/adding-an-engine.md](docs/adding-an-engine.md), a complete guide to adding a
+  JEV engine. It covers the no-code System One path, in-process vs remote, the exact adapter
+  contract, templates, registration, packaging, tests, measurements and a checklist.
+  `docs/architecture.md` and the README now describe the two engine kinds.
+- Docs: `model_routing/INSTRUCTIONS.md` gains an optional Kev step.
+- Add: **MCP layer.** The bridge serves the Model Context Protocol at `/mcp` (streamable
+  HTTP, stateless, same port and same `DecisionService` as REST) with the `jev_decide`,
+  `jev_decide_batch` and `jev_info` tools. It sends usage instructions to the client and
+  returns domain errors as tool errors with the REST codes. DNS-rebinding protection is on
+  when bound to localhost. `JEV_MCP_ENABLED=false` turns it off. The Docker image now sets
+  `JEV_HOST=0.0.0.0`. Verified end to end with the MCP Python SDK client, Claude Code, OpenCode
+  and Gemini CLI against a Kev-backed bridge; Codex CLI accepted the configuration.
+- Docs: new [docs/mcp.md](docs/mcp.md) with setup for Claude Code, Codex CLI, Cursor, VS Code,
+  Gemini CLI, OpenCode, Windsurf and stdio-only clients.
+- **Removed: the OpenCode plugin** (`integrations/opencode`, npm `opencode-jev-agentbridge`),
+  its CI job and publish workflow. OpenCode connects over MCP like every other harness. The skill
+  moved to `integrations/skills/jev-agentbridge/` and now targets the MCP tools. Also removed
+  `examples/opencode` and `examples/opencode-docker`: the latter installed an unrelated
+  `opencode-cli` pip package, and its latency comparison was not a real agent flow. The published
+  npm package should be deprecated with `npm deprecate opencode-jev-agentbridge "Use the MCP
+  endpoint: https://github.com/GiskardB/jev-agentbridge/blob/main/docs/mcp.md"`.
 - Docs: README rewritten around what the project is. It is a standardization bridge toward JEV
   decision models: one versioned contract, SDKs and error model for agents, with each JEV engine
   plugged in as an adapter and measured the same way. A new table lists what the bridge

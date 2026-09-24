@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-from jev_cpu_agentbridge.main import app, create_app
-from jev_cpu_agentbridge.runtime.settings import Settings
+from jev_agentbridge.main import app, create_app
+from jev_agentbridge.runtime.settings import Settings
 from tests.conftest import FakeAdapter
 
 OPTIONS = [{"id": "retry", "description": "Retry"}, {"id": "abort", "description": "Abort"}]

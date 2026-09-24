@@ -1,18 +1,23 @@
 ---
-name: jev-cpu-agentbridge
-description: Use when the agent has already reduced a problem to a small, closed set of known options (2-16) and just needs to pick one - e.g. retry vs abort, accept vs reject vs escalate, strategy A vs B vs C. JEV runs a fast local CPU model to select among options that are already defined; it does not investigate causes, generate the option set, write or plan content, or handle open-ended/high-stakes decisions. Do not call it just because a question can be phrased as yes/no - only call it once the option set is fixed and the relevant context is already gathered.
+name: jev-agentbridge
+description: Use when the agent has already reduced a problem to a small, closed set of known options (2-16) and just needs to pick one - e.g. retry vs abort, accept vs reject vs escalate, strategy A vs B vs C. JEV runs a local decision model (through the jev-agentbridge MCP server) to select among options that are already defined; it does not investigate causes, generate the option set, write or plan content, or handle open-ended/high-stakes decisions. Do not call it just because a question can be phrased as yes/no - only call it once the option set is fixed and the relevant context is already gathered.
 metadata:
   purpose: discrete-decision-routing
-  version: "0.2.0"
+  version: "0.3.0"
 ---
 
-# JEV-CPU-AgentBridge
+# JEV-AgentBridge
+
+The tools come from the `jev-agentbridge` MCP server (see `docs/mcp.md` in the repository):
+`jev_decide` (one decision), `jev_decide_batch` (several decisions on the same state) and
+`jev_info` (which engine answers). Harnesses show them with a prefix, e.g.
+`mcp__jev__jev_decide` in Claude Code.
 
 ## What this is
 
-JEV is a **local, CPU-only selection primitive**, not a reasoning engine. It scores a small
+JEV is a **local selection primitive**, not a reasoning engine. It scores a small
 closed set of options in a single forward pass (no `generate()`) and returns the winner plus a
-confidence signal. It is fast and free, but it can only choose between alternatives you already
+confidence signal. It runs locally at no API cost, but it can only choose between alternatives you already
 know - it cannot discover what those alternatives should be.
 
 The main agent stays responsible for everything around the selection: understanding the request,

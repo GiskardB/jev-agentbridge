@@ -29,7 +29,7 @@ jobs:
     strategy:
       matrix:
         # Test all engine variants build correctly.
-        engine: ["laya", "semif", "rizzoflow"]
+        engine: ["laya", "semif", "rizzoflow", "kev"]
     steps:
       - uses: actions/checkout@v4
 
@@ -42,20 +42,3 @@ jobs:
           push: false
           build-args: |
             ENGINE=${{ matrix.engine }}
-
-  opencode-plugin:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-
-      - name: Install
-        working-directory: integrations/opencode
-        run: npm ci
-
-      - name: Test
-        working-directory: integrations/opencode
-        run: npm test

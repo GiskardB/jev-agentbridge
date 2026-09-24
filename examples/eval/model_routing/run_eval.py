@@ -1,4 +1,4 @@
-"""Model-routing evaluation for JEV-CPU-AgentBridge. Standard library only (Python 3.9+).
+"""Model-routing evaluation for JEV-AgentBridge. Standard library only (Python 3.9+).
 
 Runs a labelled dataset through a running Bridge (any engine), or scores predictions made by
 something else (e.g. an LLM baseline), and writes comparable results.

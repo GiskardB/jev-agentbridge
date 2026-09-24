@@ -1,1 +1,0 @@
-{"state": "Deployment failed", "question": "What should happen next?", "options": [{"id": "retry", "description": "Retry deployment"}, {"id": "abort", "description": "Abort deployment"}]}

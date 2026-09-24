@@ -1,0 +1,194 @@
+{
+  "label": "laya-multilingual",
+  "source": "bridge",
+  "url": "http://jev-eval:8000",
+  "engine": {
+    "name": "laya",
+    "model": "convaiinnovations/laya",
+    "revision": "multilingual",
+    "native_batch": true
+  },
+  "bridge_version": "0.4.0",
+  "ready": {
+    "status": "ready",
+    "engine": "laya",
+    "model": "convaiinnovations/laya"
+  },
+  "dataset": "model_routing.jsonl",
+  "wall_seconds": 71.3,
+  "samples": 240,
+  "failed_requests": 0,
+  "accuracy_overall": 0.3458,
+  "accuracy_by_lang": {
+    "en": 0.375,
+    "it": 0.3167
+  },
+  "accuracy_by_class": {
+    "large": 0.2,
+    "medium": 0.1,
+    "small": 0.7375
+  },
+  "confusion_matrix": {
+    "large": {
+      "large": 16,
+      "medium": 5,
+      "small": 59
+    },
+    "medium": {
+      "large": 5,
+      "medium": 8,
+      "small": 67
+    },
+    "small": {
+      "large": 8,
+      "medium": 13,
+      "small": 59
+    }
+  },
+  "target_accuracy": 0.95,
+  "recommended_threshold": null,
+  "recommended_coverage": null,
+  "latency_p50_ms": 289.332,
+  "latency_p95_ms": 349.823,
+  "thresholds": [
+    {
+      "threshold": 0.5,
+      "coverage": 0.7167,
+      "accepted": 172,
+      "accuracy_accepted": 0.3605
+    },
+    {
+      "threshold": 0.55,
+      "coverage": 0.5792,
+      "accepted": 139,
+      "accuracy_accepted": 0.3813
+    },
+    {
+      "threshold": 0.6,
+      "coverage": 0.4667,
+      "accepted": 112,
+      "accuracy_accepted": 0.3929
+    },
+    {
+      "threshold": 0.65,
+      "coverage": 0.3583,
+      "accepted": 86,
+      "accuracy_accepted": 0.4419
+    },
+    {
+      "threshold": 0.7,
+      "coverage": 0.2458,
+      "accepted": 59,
+      "accuracy_accepted": 0.4915
+    },
+    {
+      "threshold": 0.75,
+      "coverage": 0.1583,
+      "accepted": 38,
+      "accuracy_accepted": 0.4737
+    },
+    {
+      "threshold": 0.8,
+      "coverage": 0.1208,
+      "accepted": 29,
+      "accuracy_accepted": 0.6207
+    },
+    {
+      "threshold": 0.85,
+      "coverage": 0.0792,
+      "accepted": 19,
+      "accuracy_accepted": 0.5789
+    },
+    {
+      "threshold": 0.9,
+      "coverage": 0.0333,
+      "accepted": 8,
+      "accuracy_accepted": 0.625
+    },
+    {
+      "threshold": 0.95,
+      "coverage": 0.0125,
+      "accepted": 3,
+      "accuracy_accepted": 0.0
+    }
+  ],
+  "confident_errors": [
+    {
+      "id": "en-small-03",
+      "expected": "small",
+      "predicted": "large",
+      "probability": 0.9919,
+      "state": "How many ounces are in a pound?"
+    },
+    {
+      "id": "it-small-04",
+      "expected": "small",
+      "predicted": "large",
+      "probability": 0.9764,
+      "state": "Quanti grammi ci sono in un'oncia?"
+    },
+    {
+      "id": "en-medium-12",
+      "expected": "medium",
+      "predicted": "small",
+      "probability": 0.9645,
+      "state": "Convert this short Python script that reads a JSON file into Node.js."
+    },
+    {
+      "id": "it-small-32",
+      "expected": "small",
+      "predicted": "large",
+      "probability": 0.8808,
+      "state": "Quanti metri sono 3 miglia?"
+    },
+    {
+      "id": "it-small-08",
+      "expected": "small",
+      "predicted": "medium",
+      "probability": 0.8711,
+      "state": "Converti 72 gradi Fahrenheit in Celsius."
+    },
+    {
+      "id": "en-large-08",
+      "expected": "large",
+      "predicted": "small",
+      "probability": 0.8709,
+      "state": "Go through these 10,000 lines of application logs and find the root cause of the intermittent 502 errors."
+    },
+    {
+      "id": "en-small-06",
+      "expected": "small",
+      "predicted": "large",
+      "probability": 0.8694,
+      "state": "Convert 10 kilometers to miles."
+    },
+    {
+      "id": "en-medium-23",
+      "expected": "medium",
+      "predicted": "small",
+      "probability": 0.8551,
+      "state": "Reply to this customer complaint about a late refund, apologizing and explaining the next steps."
+    },
+    {
+      "id": "it-large-15",
+      "expected": "large",
+      "predicted": "small",
+      "probability": 0.846,
+      "state": "Spiega la differenza tra consistenza forte ed eventuale e decidi quale serve a ciascuno dei nostri 6 microservizi, motivando."
+    },
+    {
+      "id": "en-medium-02",
+      "expected": "medium",
+      "predicted": "small",
+      "probability": 0.8393,
+      "state": "Summarize this one-page memo about the new travel policy into five bullet points."
+    },
+    {
+      "id": "en-medium-16",
+      "expected": "medium",
+      "predicted": "small",
+      "probability": 0.8382,
+      "state": "Give me 8 icebreaker questions for a team workshop."
+    }
+  ]
+}

@@ -1,0 +1,180 @@
+{
+  "label": "semif-v2",
+  "source": "bridge",
+  "url": "http://jev-eval:8000",
+  "engine": {
+    "name": "semif",
+    "model": "Qwen/Qwen3-0.6B",
+    "revision": "main",
+    "native_batch": true
+  },
+  "bridge_version": "0.4.0",
+  "ready": {
+    "status": "ready",
+    "engine": "semif",
+    "model": "Qwen/Qwen3-0.6B"
+  },
+  "dataset": "model_routing.jsonl",
+  "wall_seconds": 336.6,
+  "samples": 240,
+  "failed_requests": 0,
+  "accuracy_overall": 0.5167,
+  "accuracy_by_lang": {
+    "en": 0.5667,
+    "it": 0.4667
+  },
+  "accuracy_by_class": {
+    "large": 0.45,
+    "medium": 0.9625,
+    "small": 0.1375
+  },
+  "confusion_matrix": {
+    "large": {
+      "large": 36,
+      "medium": 40,
+      "small": 4
+    },
+    "medium": {
+      "large": 0,
+      "medium": 77,
+      "small": 3
+    },
+    "small": {
+      "large": 10,
+      "medium": 59,
+      "small": 11
+    }
+  },
+  "target_accuracy": 0.95,
+  "recommended_threshold": null,
+  "recommended_coverage": null,
+  "latency_p50_ms": 1427.025,
+  "latency_p95_ms": 1690.088,
+  "thresholds": [
+    {
+      "threshold": 0.5,
+      "coverage": 0.875,
+      "accepted": 210,
+      "accuracy_accepted": 0.5476
+    },
+    {
+      "threshold": 0.55,
+      "coverage": 0.725,
+      "accepted": 174,
+      "accuracy_accepted": 0.592
+    },
+    {
+      "threshold": 0.6,
+      "coverage": 0.6417,
+      "accepted": 154,
+      "accuracy_accepted": 0.6169
+    },
+    {
+      "threshold": 0.65,
+      "coverage": 0.5417,
+      "accepted": 130,
+      "accuracy_accepted": 0.6615
+    },
+    {
+      "threshold": 0.7,
+      "coverage": 0.4167,
+      "accepted": 100,
+      "accuracy_accepted": 0.75
+    },
+    {
+      "threshold": 0.75,
+      "coverage": 0.35,
+      "accepted": 84,
+      "accuracy_accepted": 0.7857
+    },
+    {
+      "threshold": 0.8,
+      "coverage": 0.3,
+      "accepted": 72,
+      "accuracy_accepted": 0.875
+    },
+    {
+      "threshold": 0.85,
+      "coverage": 0.2458,
+      "accepted": 59,
+      "accuracy_accepted": 0.8983
+    },
+    {
+      "threshold": 0.9,
+      "coverage": 0.1792,
+      "accepted": 43,
+      "accuracy_accepted": 0.9302
+    },
+    {
+      "threshold": 0.95,
+      "coverage": 0.0708,
+      "accepted": 17,
+      "accuracy_accepted": 0.9412
+    }
+  ],
+  "confident_errors": [
+    {
+      "id": "en-small-21",
+      "expected": "small",
+      "predicted": "medium",
+      "probability": 0.9559662938117981,
+      "state": "Rephrase more politely: \"Answer my email now.\""
+    },
+    {
+      "id": "en-large-26",
+      "expected": "large",
+      "predicted": "medium",
+      "probability": 0.9111850261688232,
+      "state": "Explain how Paxos works and walk through what happens when two proposers compete during a network partition."
+    },
+    {
+      "id": "it-large-10",
+      "expected": "large",
+      "predicted": "medium",
+      "probability": 0.9070649147033691,
+      "state": "Rifattorizza questo modulo di 2000 righe in classi coese, spiegando i passaggi e come evitare regressioni."
+    },
+    {
+      "id": "it-large-18",
+      "expected": "large",
+      "predicted": "medium",
+      "probability": 0.8745597004890442,
+      "state": "Individua le vulnerabilità di questo flusso di autenticazione OAuth2 personalizzato e proponi le correzioni."
+    },
+    {
+      "id": "it-small-22",
+      "expected": "small",
+      "predicted": "medium",
+      "probability": 0.8692520260810852,
+      "state": "Come si scrive la data 5 marzo 2026 in formato ISO?"
+    },
+    {
+      "id": "it-large-26",
+      "expected": "large",
+      "predicted": "medium",
+      "probability": 0.8536335229873657,
+      "state": "Spiega come funziona il consenso Raft e simula cosa succede con una partizione di rete tra 5 nodi."
+    },
+    {
+      "id": "it-small-40",
+      "expected": "small",
+      "predicted": "medium",
+      "probability": 0.8351898193359375,
+      "state": "Riassumi in tre parole: \"La riunione è spostata a giovedì\"."
+    },
+    {
+      "id": "it-large-01",
+      "expected": "large",
+      "predicted": "medium",
+      "probability": 0.8313552141189575,
+      "state": "Analizza questi tre anni di bilanci, spiega le cause del calo di marginalità e proponi tre interventi con stima dell'impatto."
+    },
+    {
+      "id": "en-small-39",
+      "expected": "small",
+      "predicted": "large",
+      "probability": 0.804377019405365,
+      "state": "What's the maximum file size for uploads?"
+    }
+  ]
+}

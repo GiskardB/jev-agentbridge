@@ -1,0 +1,116 @@
+{
+  "label": "laya-en",
+  "source": "bridge",
+  "url": "http://jev-eval:8000",
+  "engine": {
+    "name": "laya",
+    "model": "convaiinnovations/laya",
+    "revision": "main",
+    "native_batch": true
+  },
+  "bridge_version": "0.4.0",
+  "ready": {
+    "status": "ready",
+    "engine": "laya",
+    "model": "convaiinnovations/laya"
+  },
+  "dataset": "model_routing.jsonl",
+  "wall_seconds": 226.3,
+  "samples": 240,
+  "failed_requests": 0,
+  "accuracy_overall": 0.5958,
+  "accuracy_by_lang": {
+    "en": 0.7,
+    "it": 0.4917
+  },
+  "accuracy_by_class": {
+    "large": 0.4375,
+    "medium": 0.9,
+    "small": 0.45
+  },
+  "confusion_matrix": {
+    "large": {
+      "large": 35,
+      "medium": 44,
+      "small": 1
+    },
+    "medium": {
+      "large": 1,
+      "medium": 72,
+      "small": 7
+    },
+    "small": {
+      "large": 1,
+      "medium": 43,
+      "small": 36
+    }
+  },
+  "target_accuracy": 0.95,
+  "recommended_threshold": 0.55,
+  "recommended_coverage": 0.1208,
+  "latency_p50_ms": 970.648,
+  "latency_p95_ms": 1193.629,
+  "thresholds": [
+    {
+      "threshold": 0.5,
+      "coverage": 0.2833,
+      "accepted": 68,
+      "accuracy_accepted": 0.8235
+    },
+    {
+      "threshold": 0.55,
+      "coverage": 0.1208,
+      "accepted": 29,
+      "accuracy_accepted": 0.9655
+    },
+    {
+      "threshold": 0.6,
+      "coverage": 0.0542,
+      "accepted": 13,
+      "accuracy_accepted": 1.0
+    },
+    {
+      "threshold": 0.65,
+      "coverage": 0.0333,
+      "accepted": 8,
+      "accuracy_accepted": 1.0
+    },
+    {
+      "threshold": 0.7,
+      "coverage": 0.0042,
+      "accepted": 1,
+      "accuracy_accepted": 1.0
+    },
+    {
+      "threshold": 0.75,
+      "coverage": 0.0,
+      "accepted": 0,
+      "accuracy_accepted": null
+    },
+    {
+      "threshold": 0.8,
+      "coverage": 0.0,
+      "accepted": 0,
+      "accuracy_accepted": null
+    },
+    {
+      "threshold": 0.85,
+      "coverage": 0.0,
+      "accepted": 0,
+      "accuracy_accepted": null
+    },
+    {
+      "threshold": 0.9,
+      "coverage": 0.0,
+      "accepted": 0,
+      "accuracy_accepted": null
+    },
+    {
+      "threshold": 0.95,
+      "coverage": 0.0,
+      "accepted": 0,
+      "accuracy_accepted": null
+    }
+  ],
+  "confident_errors": []
+}

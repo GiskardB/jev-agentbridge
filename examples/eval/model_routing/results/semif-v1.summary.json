@@ -1,0 +1,116 @@
+{
+  "label": "semif-v1",
+  "source": "bridge",
+  "url": "http://jev-eval:8000",
+  "engine": {
+    "name": "semif",
+    "model": "Qwen/Qwen3-0.6B",
+    "revision": "main",
+    "native_batch": true
+  },
+  "bridge_version": "0.4.0",
+  "ready": {
+    "status": "ready",
+    "engine": "semif",
+    "model": "Qwen/Qwen3-0.6B"
+  },
+  "dataset": "model_routing.jsonl",
+  "wall_seconds": 349.9,
+  "samples": 240,
+  "failed_requests": 0,
+  "accuracy_overall": 0.375,
+  "accuracy_by_lang": {
+    "en": 0.4167,
+    "it": 0.3333
+  },
+  "accuracy_by_class": {
+    "large": 0.9625,
+    "medium": 0.0125,
+    "small": 0.15
+  },
+  "confusion_matrix": {
+    "large": {
+      "large": 77,
+      "medium": 0,
+      "small": 3
+    },
+    "medium": {
+      "large": 71,
+      "medium": 1,
+      "small": 8
+    },
+    "small": {
+      "large": 68,
+      "medium": 0,
+      "small": 12
+    }
+  },
+  "target_accuracy": 0.95,
+  "recommended_threshold": 0.65,
+  "recommended_coverage": 0.0708,
+  "latency_p50_ms": 1423.964,
+  "latency_p95_ms": 1690.383,
+  "thresholds": [
+    {
+      "threshold": 0.5,
+      "coverage": 0.5833,
+      "accepted": 140,
+      "accuracy_accepted": 0.4
+    },
+    {
+      "threshold": 0.55,
+      "coverage": 0.2625,
+      "accepted": 63,
+      "accuracy_accepted": 0.6032
+    },
+    {
+      "threshold": 0.6,
+      "coverage": 0.1625,
+      "accepted": 39,
+      "accuracy_accepted": 0.7179
+    },
+    {
+      "threshold": 0.65,
+      "coverage": 0.0708,
+      "accepted": 17,
+      "accuracy_accepted": 1.0
+    },
+    {
+      "threshold": 0.7,
+      "coverage": 0.0375,
+      "accepted": 9,
+      "accuracy_accepted": 1.0
+    },
+    {
+      "threshold": 0.75,
+      "coverage": 0.0042,
+      "accepted": 1,
+      "accuracy_accepted": 1.0
+    },
+    {
+      "threshold": 0.8,
+      "coverage": 0.0,
+      "accepted": 0,
+      "accuracy_accepted": null
+    },
+    {
+      "threshold": 0.85,
+      "coverage": 0.0,
+      "accepted": 0,
+      "accuracy_accepted": null
+    },
+    {
+      "threshold": 0.9,
+      "coverage": 0.0,
+      "accepted": 0,
+      "accuracy_accepted": null
+    },
+    {
+      "threshold": 0.95,
+      "coverage": 0.0,
+      "accepted": 0,
+      "accuracy_accepted": null
+    }
+  ],
+  "confident_errors": []
+}

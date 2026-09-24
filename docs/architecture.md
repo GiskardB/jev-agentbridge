@@ -65,17 +65,19 @@ port does not change: a noul has the options `yes`/`no`, a score has its levels,
 
 ```mermaid
 flowchart LR
-    D["Decision<br/>type = noul | score | choice"] --> Q{"type in engine's<br/>native_types?"}
+    D["Decision<br/>type = noul | score | choice"] --> Q{"native path available<br/>and enabled by<br/>JEV_NATIVE_TYPES?"}
     Q -- yes --> N["adapter scores it natively<br/>(Laya, Kev heads; RizzoFlow boolean/score)"]
-    Q -- no --> E["service emulates it:<br/>same options as a choice"]
+    Q -- "no (default)" --> E["service asks it as a choice<br/>over the same options"]
     N --> R["probabilities per option id"]
     E --> R
     R --> S["service: argmax · threshold<br/>score = Σ index × p · noul = p(yes)"]
 ```
 
 The expected level and P(yes) are computed by the service, not taken from the engine, so they
-mean the same thing whatever answers. `metadata.native_type` records which path was used, and
-`JEV_NATIVE_TYPES=false` forces emulation to compare the two.
+mean the same thing whatever answers. `metadata.native_type` records which path was used.
+Native paths are off by default (`JEV_NATIVE_TYPES=false`): measured on the question-types
+suite they were never better, and Laya's native score was clearly worse (see
+[api.md](api.md#question-types)).
 
 ## Request flow
 
@@ -142,8 +144,8 @@ package in `adapters/<name>/` plus one line in `adapters/registry.py`. Nothing i
 | any, with `-e JEV_ENGINE=systemone` | `systemone` | Generic System One client: hosted Jev, Kev, RizzoFlow or any compatible server | `JEV_SYSTEMONE_URL`, `JEV_SYSTEMONE_MODEL`, `JEV_SYSTEMONE_API_KEY`, `JEV_SYSTEMONE_TIMEOUT_SECONDS` |
 
 Service-wide settings: `JEV_ENGINE`, `JEV_MIN_SELECTED_PROBABILITY` (default threshold, 0.60),
-`JEV_NATIVE_TYPES` (default `true`; `false` emulates noul and score as a choice on every
-engine), `JEV_MCP_ENABLED`, `JEV_HOST`, `JEV_PORT`.
+`JEV_NATIVE_TYPES` (default `false`: noul and score are asked as a choice; `true` or a list
+such as `noul` uses the engine's native paths), `JEV_MCP_ENABLED`, `JEV_HOST`, `JEV_PORT`.
 
 ## Where it sits in an agent
 

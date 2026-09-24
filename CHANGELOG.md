@@ -10,12 +10,13 @@
   by the service so it means the same thing for every engine. `accepted` and the threshold work
   as before. Existing requests are unchanged (`type` defaults to `choice`); responses gain
   `type`, `score`, `noul` and `metadata.native_type`.
-- Add: **native types per engine.** Adapters declare `EngineInfo.native_types`. Laya and the
-  System One adapters (`kev`, `systemone`) send `noul` and `score` natively; RizzoFlow sends
-  them as `boolean` and `score`; semif stays choice-only. The service emulates a missing type as
-  a choice over the same options. `/v1/info` lists `engine.native_types` and
-  `supported_types`. `JEV_NATIVE_TYPES=false` forces emulation everywhere, to measure the
-  difference.
+- Add: **native type paths per engine, off by default.** Adapters declare
+  `EngineInfo.native_types`: Laya and the System One adapters (`kev`, `systemone`) can send
+  `noul` and `score` natively, RizzoFlow as `boolean` and `score`; semif is choice-only. By
+  default the service asks noul and score as a choice over the same options (`yes`/`no`, or the
+  levels) on every engine; `JEV_NATIVE_TYPES=true` (or a list such as `noul`) enables the
+  native paths. `/v1/info` lists `engine.native_types` (native in the running configuration)
+  and `supported_types`. `docker-compose.kev.yml` passes `JEV_NATIVE_TYPES` through.
 - Add: mixed-type batches: `/v1/decide/batch` items can each have their own `type`.
 - Change (MCP): **one tool per type**: `jev_yes_no`, `jev_choose`, `jev_score`.
   `jev_decide` from 0.5.x is now `jev_choose`. `jev_decide_batch` accepts mixed types. The
@@ -27,7 +28,9 @@
   could not be installed with `pip install ./sdk/python`. It installs now.
 - Add: `examples/eval/question_types`: 80 labelled yes/no and scale questions (Italian and
   English) and a runner to compare native against emulated types on any engine.
-  RESULTS_PLACEHOLDER
+  Measured: native was never better. noul is within noise on Kev-0.8B (85.4% both ways) and
+  Laya; score is equal on Kev (68.8% native, 71.9% emulated) and much worse natively on Laya
+  multilingual (40.6% vs 62.5%). That is why native paths are off by default.
 
 ## 0.5.1
 

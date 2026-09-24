@@ -222,9 +222,11 @@ curl -X POST http://localhost:8000/v1/decide -H "Content-Type: application/json"
 }'
 ```
 
-Use the narrowest type: a yes/no question is easier for the model as `noul` than as a
-two-option choice, and `score` keeps the order of a scale. Details:
-[docs/api.md](docs/api.md#question-types).
+The type is for the caller: a yes/no answer comes back as `yes`/`no` with P(yes), a scale
+keeps its order through `score`. The engine is asked the same way by default (as a choice over
+`yes`/`no` or the levels), because on our measurements the engines' native yes/no and scale
+paths were not better (Laya's native scale was clearly worse). `JEV_NATIVE_TYPES` turns them on.
+Details and numbers: [docs/api.md](docs/api.md#question-types).
 
 The response has the same shape whatever the engine. `accepted: false` means "not confident
 enough, decide yourself"; it does not mean "no". Other endpoints: `/v1/decide/batch` (several

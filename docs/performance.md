@@ -152,3 +152,18 @@ What this shows:
 - **Latency does not compensate on its own.** At about 1 s per decision on the evaluator's
   machine, laya is 9× faster than a reasoning LLM, but a non-reasoning LLM classifier may be
   comparable. Measure both on your hardware before counting on a speed win.
+
+## Question types: native vs emulated
+
+The engines that have native yes/no (`noul`) and scale (`score`) paths were measured against
+asking the same questions as a choice, on the 80-question
+[question-types suite](../examples/eval/question_types):
+
+| Engine | noul native / emulated | score exact, native / emulated |
+|---|---|---|
+| Kev-0.8B | 85.4% / 85.4% | 68.8% / 71.9% |
+| Laya multilingual | 81.2% / 79.2% | 40.6% / 62.5% |
+| Laya English | 79.2% / 83.3% | 43.8% / 46.9% |
+
+Native was never better, and Laya's native score was clearly worse, so the Bridge asks noul and
+score as a choice by default (`JEV_NATIVE_TYPES=false`).

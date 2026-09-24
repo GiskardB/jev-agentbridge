@@ -34,8 +34,8 @@ it is. It judges; it does not investigate, reason or write. Pick the tool by que
 - jev_yes_no: a yes/no question ("is this request within policy?").
 - jev_choose: one category out of 2-16 known options ("which team handles this?").
 - jev_score: a position on an ordinal scale, levels lowest first ("how urgent is it?").
-Use the narrowest type: a yes/no question asked as jev_yes_no is easier for the model than the
-same question as a two-option choice. Several questions on the same state: jev_decide_batch.
+Use the tool that matches the question: jev_yes_no answers yes/no directly, jev_score keeps the
+order of the scale. Several questions on the same state: jev_decide_batch.
 
 Call these tools only when all of these hold:
 1. There is an actual decision, not a request for an answer, an explanation or an artifact.

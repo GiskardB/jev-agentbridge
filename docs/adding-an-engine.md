@@ -112,9 +112,10 @@ reach the adapter in the same shape, a `Decision` with options:
 | `noul` | `yes`, `no` (descriptions "Yes"/"No" unless the caller gave `yes_description` / `no_description`; `decision.custom_noul_descriptions()` returns them or `None`) | `yes`, `no` |
 | `score` | the levels, **lowest first** | the level ids |
 
-The service only sends types listed in `native_types`. Any other type is **emulated**: it
-arrives as `type="choice"` over the same options, so an adapter that only does choice is
-already complete. The service computes the score's expected level from `probabilities`; do not
+The service only sends types listed in `native_types`, and only when the operator enables them
+with `JEV_NATIVE_TYPES` (off by default). Any other type is **emulated**: it arrives as
+`type="choice"` over the same options, so an adapter that only does choice is already
+complete. The service computes the score's expected level from `probabilities`; do not
 return it (put the backend's own score in `details` if you want it visible).
 
 If your backend's answer for a type is keyed differently (System One and Laya return score

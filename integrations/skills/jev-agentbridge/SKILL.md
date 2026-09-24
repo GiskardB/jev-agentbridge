@@ -21,9 +21,10 @@ Plus `jev_decide_batch` (several questions on the same state, types can be mixed
 (which engine answers). Harnesses show them with a prefix, e.g. `mcp__jev__jev_yes_no` in
 Claude Code.
 
-Use the narrowest type. A yes/no question goes to `jev_yes_no`, not to `jev_choose` with
-options "yes"/"no". A scale goes to `jev_score` with the levels lowest first, not to
-`jev_choose`: the score keeps the order and tells you how far between two levels the answer is.
+Use the tool that matches the question. A yes/no question goes to `jev_yes_no`, not to
+`jev_choose` with options "yes"/"no": the answer comes back directly as `yes`/`no`. A scale goes
+to `jev_score` with the levels lowest first, not to `jev_choose`: the score keeps the order and
+tells you how far between two levels the answer is.
 
 ## What this is
 

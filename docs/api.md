@@ -13,24 +13,41 @@ A decision has one of the three JEV question types, set with `type`:
 | `noul` | Yes or no? | no `options`; optional `yes_description` / `no_description` | `decision.id` = `yes` or `no`; `noul` = P(yes) |
 | `score` | Where on this scale? | `options`: 2–16 levels, **lowest first** | `decision` = the most likely level; `score` = expected level, from 0 (first level) to n−1 |
 
-Use the narrowest type that fits. A yes/no question sent as `noul` is a simpler task for the
-model than the same question as a two-option choice. A scale sent as `score` keeps its order:
-the `score` field says "between *annoyed* and *angry*, closer to *angry*", which a choice cannot.
+Use the type that matches the question. The gain is on your side of the call: a `noul` answer
+is directly `yes`/`no` with P(yes), and a `score` answer keeps the order of the scale (`score`
+2.4 on levels 0–3 reads "between the third and fourth level, closer to the third"), which a
+plain choice does not give you.
 
-Engines that do not score a type natively get it **emulated**: the Bridge asks it as a choice
-over the same options (`yes`/`no`, or the levels), computes `score` itself, and returns the
-same response. `metadata.native_type` says which path was taken, and `GET /v1/info` lists each
-engine's `native_types`.
+**How the engine is asked.** By default the Bridge asks every noul and score question as a
+choice over the same options (`yes`/`no`, or the levels) and computes `noul` and `score` itself.
+Several engines also have a native path for these types, and `JEV_NATIVE_TYPES` turns it on:
 
-| Engine | Native types |
+| Engine | Native path available |
 |---|---|
-| `laya` | choice, noul, score |
-| `kev`, `systemone` | choice, noul, score |
-| `rizzoflow` | choice, noul (as `boolean`), score |
-| `semif` | choice (noul and score emulated) |
+| `laya` | noul, score (dedicated heads) |
+| `kev`, `systemone` | noul, score (System One `noul` / `score` questions) |
+| `rizzoflow` | noul (as `boolean`), score |
+| `semif` | none: always asked as a choice |
 
-`JEV_NATIVE_TYPES=false` forces emulation on every engine. It exists to measure whether the
-native heads help: see [`examples/eval/question_types`](../examples/eval/question_types).
+`JEV_NATIVE_TYPES`: `false` (default), `true` / `all`, or a list such as `noul`. The response is
+the same either way; `metadata.native_type` says which path was used and `GET /v1/info` lists
+the types that are native in the running configuration.
+
+Native is off by default because on the bundled
+[question-types suite](../examples/eval/question_types) (80 questions, Italian and English) it
+was never better:
+
+| Engine | noul native / emulated | score exact, native / emulated |
+|---|---|---|
+| Kev-0.8B | 85.4% / 85.4% | 68.8% / 71.9% |
+| Laya multilingual | 81.2% / 79.2% | 40.6% / 62.5% |
+| Laya English | 79.2% / 83.3% | 43.8% / 46.9% |
+
+Kev asks a noul internally as a choice between "no" and "yes", so the two paths are nearly the
+same computation. Laya's native score head pulls answers toward the middle levels, even
+confidently (42.9% accurate above p = 0.8 on the multilingual model). The noul differences are
+one or two questions out of 48, within noise. Measure on your own questions before turning
+native on.
 
 ## `POST /v1/decide`
 
@@ -112,7 +129,7 @@ The examples below use illustrative values.
   "threshold": 0.6,
   "score": null,
   "noul": 0.93,
-  "metadata": { "engine": "kev", "native_type": true, "...": "..." }
+  "metadata": { "engine": "kev", "native_type": false, "...": "..." }
 }
 ```
 
@@ -145,7 +162,7 @@ threshold. `accepted: false` means "not sure", not "no".
   "threshold": 0.6,
   "score": 2.19,
   "noul": null,
-  "metadata": { "engine": "kev", "native_type": true, "...": "..." }
+  "metadata": { "engine": "kev", "native_type": false, "...": "..." }
 }
 ```
 
@@ -195,7 +212,7 @@ loaded, otherwise `503` with `MODEL_NOT_READY`.
     "model": "convaiinnovations/laya",
     "revision": "multilingual",
     "native_batch": true,
-    "native_types": ["choice", "noul", "score"]
+    "native_types": ["choice"]
   },
   "available_engines": ["kev", "laya", "rizzoflow", "semif", "systemone"],
   "min_options": 2,

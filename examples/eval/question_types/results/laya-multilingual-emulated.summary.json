@@ -1,0 +1,60 @@
+{
+  "label": "laya-multilingual-emulated",
+  "native_type": false,
+  "types": {
+    "noul": {
+      "n": 48,
+      "accuracy": 0.7917,
+      "by_lang": {
+        "en": 0.8333,
+        "it": 0.75
+      },
+      "coverage": {
+        "0.6": {
+          "coverage": 0.875,
+          "accuracy": 0.8333
+        },
+        "0.7": {
+          "coverage": 0.8542,
+          "accuracy": 0.8537
+        },
+        "0.8": {
+          "coverage": 0.7917,
+          "accuracy": 0.8421
+        },
+        "0.9": {
+          "coverage": 0.6042,
+          "accuracy": 0.8621
+        }
+      }
+    },
+    "score": {
+      "n": 32,
+      "accuracy": 0.625,
+      "by_lang": {
+        "en": 0.625,
+        "it": 0.625
+      },
+      "coverage": {
+        "0.6": {
+          "coverage": 0.7812,
+          "accuracy": 0.6
+        },
+        "0.7": {
+          "coverage": 0.5938,
+          "accuracy": 0.7368
+        },
+        "0.8": {
+          "coverage": 0.5312,
+          "accuracy": 0.7059
+        },
+        "0.9": {
+          "coverage": 0.2812,
+          "accuracy": 0.6667
+        }
+      },
+      "within_one_level": 0.8438,
+      "score_mae": 0.6479
+    }
+  }
+}

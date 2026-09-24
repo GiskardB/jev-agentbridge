@@ -238,3 +238,18 @@ def test_rizzoflow_native_boolean_and_score(monkeypatch: pytest.MonkeyPatch) -> 
     assert questions["1"]["levels"] == ["Calm", "Annoyed", "Angry"]
     assert noul.decision.id == "yes" and noul.noul == 0.8
     assert score.decision.id == "calm" and score.score == pytest.approx(0.4)
+
+
+def test_native_types_can_be_enabled_per_type(monkeypatch: pytest.MonkeyPatch) -> None:
+    adapter = FakeAdapter(native_types=ALL_TYPES)
+    service = DecisionService(adapter, default_threshold=0.6, native_types={"noul"})
+    decisions = [Decision.noul("a"), Decision("b", LEVELS, type="score")]
+    service.decide_batch(state="s", decisions=decisions)
+    assert adapter.seen_types == ["noul", "choice"]
+    for value, expected in [("", False), ("false", False), ("all", True), ("true", True),
+                            ("noul", frozenset({"noul"})),
+                            ("noul, score", frozenset({"noul", "score"}))]:
+        monkeypatch.setenv("JEV_NATIVE_TYPES", value)
+        assert Settings.from_env().native_types == expected
+    monkeypatch.delenv("JEV_NATIVE_TYPES")
+    assert Settings.from_env().native_types is False  # emulated by default

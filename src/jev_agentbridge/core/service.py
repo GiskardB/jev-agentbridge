@@ -15,7 +15,7 @@ import contextlib
 import dataclasses
 import threading
 import time
-from typing import Any, Sequence
+from typing import Any, Iterable, Sequence
 
 from .errors import (
     DecisionError,
@@ -47,13 +47,16 @@ class DecisionService:
         adapter: DecisionAdapter,
         *,
         default_threshold: float,
-        native_types: bool = True,
+        native_types: bool | Iterable[str] = True,
     ) -> None:
         _check_threshold(default_threshold)
         self._adapter = adapter
         self._default_threshold = default_threshold
-        # False emulates every type as a choice, e.g. to measure native against emulated.
-        self._native_types = native_types
+        # True: every type the adapter supports goes native. False: everything is asked as a
+        # choice. A set: only those types go native (when the adapter supports them).
+        self._native_types = (
+            native_types if isinstance(native_types, bool) else frozenset(native_types)
+        )
         # Adapters that are not thread-safe are serialized here, so the API can run
         # requests in a thread pool without every adapter re-implementing locking.
         self._lock = (
@@ -70,9 +73,12 @@ class DecisionService:
     def native_types(self) -> frozenset[str]:
         """Question types scored natively by the engine (the rest are emulated)."""
 
-        if not self._native_types:
-            return frozenset({"choice"})
-        return frozenset(self._adapter.info().native_types) | {"choice"}
+        supported = frozenset(self._adapter.info().native_types)
+        if self._native_types is False:
+            supported = frozenset()
+        elif self._native_types is not True:
+            supported &= self._native_types
+        return supported | {"choice"}
 
     def is_ready(self) -> bool:
         try:

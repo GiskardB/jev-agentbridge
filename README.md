@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img alt="version" src="https://img.shields.io/badge/version-0.5.1-informational">
+  <img alt="version" src="https://img.shields.io/badge/version-0.6.0-informational">
   <img alt="api" src="https://img.shields.io/badge/API-v1-informational">
   <img alt="python" src="https://img.shields.io/badge/python-3.11%2B-blue">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-green">
@@ -21,8 +21,9 @@
 ## What this is
 
 **JEV models** are small local models built to *choose* rather than *write*. Given some
-evidence, a question and 2–16 options, they score the options in a single forward pass and
-return a probability for each. They need no text generation and can run locally, on CPU or GPU.
+evidence and a closed question, they score the possible answers in a single forward pass and
+return a probability for each. The questions come in three types: **yes/no** (`noul`), **one
+category out of 2–16** (`choice`) and **a level on an ordinal scale** (`score`). They need no text generation and can run locally, on CPU or GPU.
 The family is young and moving fast. [semif](#engines) is a causal LM scored on option letters,
 [Laya](https://github.com/NandhaKishorM/laya) uses non-autoregressive encoders,
 [Kev](https://github.com/jaredpalmer/kev) puts LoRA and a pointer head on Qwen3.5, and
@@ -68,7 +69,8 @@ removes them. These are real differences found while building the adapters:
 
 | Concern | Engines as they come | Through the bridge |
 |---|---|---|
-| Request | Letters A–P in a prompt (semif), a `criteria` dict (Laya), a `questions` payload (RizzoFlow) | One request: `state`, `question`, `options[{id, description}]` |
+| Request | Letters A–P in a prompt (semif), a `criteria` dict (Laya), a `questions` payload (RizzoFlow) | One request: `type`, `state`, `question`, `options[{id, description}]` |
+| Question types | noul/choice/score in Laya and Kev, boolean/choice/score in RizzoFlow, choice only in semif | `choice`, `noul`, `score` on every engine: native where the engine has them, emulated as a choice where it does not |
 | Probabilities | Keyed by letter (semif) or by option id (Laya, RizzoFlow) | Always one probability per **option id**, in request order |
 | "Confidence" | Laya's `confidence` is 1 − normalized entropy; for example p = 0.64 comes back as 0.056 | `selected_probability` is always the chosen option's probability |
 | Acceptance | Each engine had its own threshold logic, or none | One policy: `accepted = selected_probability ≥ threshold`, per request, per batch item or as the service default |
@@ -184,15 +186,47 @@ Example response (values are illustrative):
 
 ```json
 {
+  "type": "choice",
   "decision": {"id": "retry", "description": "Retry the deployment"},
   "probabilities": {"retry": 0.81, "abort": 0.19},
   "selected_probability": 0.81,
   "accepted": true,
   "threshold": 0.6,
-  "metadata": {"engine": "laya", "model": "convaiinnovations/laya", "model_revision": "main",
-               "mode": "direct", "latency_ms": 340.2, "engine_details": {"...": "..."}}
+  "score": null,
+  "noul": null,
+  "metadata": {"engine": "laya", "model": "convaiinnovations/laya",
+               "model_revision": "multilingual", "mode": "direct", "latency_ms": 340.2,
+               "native_type": true, "engine_details": {"...": "..."}}
 }
 ```
+
+Yes/no and scale questions use the same endpoint with a `type`:
+
+```bash
+# yes/no: no options; the answer is "yes" or "no", and "noul" is P(yes)
+curl -X POST http://localhost:8000/v1/decide -H "Content-Type: application/json" -d '{
+  "type": "noul",
+  "state": "Customer bought the shoes 10 days ago. Policy: returns within 30 days.",
+  "question": "Is the return request within policy?"
+}'
+
+# ordinal scale: options are the levels, lowest first; "score" is the expected level (0..n-1)
+curl -X POST http://localhost:8000/v1/decide -H "Content-Type: application/json" -d '{
+  "type": "score",
+  "state": "Our largest customer has a demo in 40 minutes and SSO login is broken.",
+  "question": "How urgent is the request?",
+  "options": [{"id": "low", "description": "Can wait days"},
+              {"id": "medium", "description": "Within the day"},
+              {"id": "high", "description": "Within the hour"},
+              {"id": "critical", "description": "Right now"}]
+}'
+```
+
+The type is for the caller: a yes/no answer comes back as `yes`/`no` with P(yes), a scale
+keeps its order through `score`. The engine is asked the same way by default (as a choice over
+`yes`/`no` or the levels), because on our measurements the engines' native yes/no and scale
+paths were not better (Laya's native scale was clearly worse). `JEV_NATIVE_TYPES` turns them on.
+Details and numbers: [docs/api.md](docs/api.md#question-types).
 
 The response has the same shape whatever the engine. `accepted: false` means "not confident
 enough, decide yourself"; it does not mean "no". Other endpoints: `/v1/decide/batch` (several
@@ -288,7 +322,7 @@ templates and a checklist, is **[docs/adding-an-engine.md](docs/adding-an-engine
 
 | Integration | What you get |
 |---|---|
-| **MCP** at `/mcp` ([docs/mcp.md](docs/mcp.md)) | `jev_decide`, `jev_decide_batch` and `jev_info` tools for any MCP-capable agent harness, served by the bridge itself. Verified with Claude Code, OpenCode and Gemini CLI; configuration also given for Codex CLI, Cursor, VS Code and Windsurf |
+| **MCP** at `/mcp` ([docs/mcp.md](docs/mcp.md)) | `jev_yes_no`, `jev_choose`, `jev_score`, `jev_decide_batch` and `jev_info` tools for any MCP-capable agent harness, served by the bridge itself. Verified with Claude Code, OpenCode and Gemini CLI; configuration also given for Codex CLI, Cursor, VS Code and Windsurf |
 | Agent skill ([integrations/skills/jev-agentbridge](integrations/skills/jev-agentbridge/)) | Optional `SKILL.md` that teaches an agent when to call the tools and how to read `accepted` |
 | Python SDK ([sdk/python](sdk/python/)) | `decide`, `decide_batch`, `decide_or_fallback` for your own code |
 | TypeScript SDK ([sdk/typescript](sdk/typescript/)) | `decide`, `decideBatch`, `decideOrFallback`, typed `BridgeError` |

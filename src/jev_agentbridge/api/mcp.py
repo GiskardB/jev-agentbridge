@@ -7,28 +7,41 @@ the same `DecisionService`, so every engine is reachable from any MCP-capable ag
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from typing import Any, Callable, Literal
 
 import anyio
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ToolAnnotations
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from .. import API_VERSION, __version__
 from ..core.errors import DecisionError, EngineNotReadyError
-from ..core.models import MAX_OPTIONS, MIN_OPTIONS, Decision, DecisionResult, Option
+from ..core.models import (
+    MAX_OPTIONS,
+    MIN_OPTIONS,
+    QUESTION_TYPES,
+    Decision,
+    DecisionResult,
+    Option,
+    QuestionType,
+)
 from ..core.service import DecisionService
 
 INSTRUCTIONS = """\
-JEV-AgentBridge picks one option out of a small, closed set (2-16) with a local JEV decision
-model, and says how confident it is. It selects; it does not investigate, reason or write.
+JEV-AgentBridge answers closed questions with a local JEV decision model and says how confident
+it is. It judges; it does not investigate, reason or write. Pick the tool by question type:
+- jev_yes_no: a yes/no question ("is this request within policy?").
+- jev_choose: one category out of 2-16 known options ("which team handles this?").
+- jev_score: a position on an ordinal scale, levels lowest first ("how urgent is it?").
+Use the tool that matches the question: jev_yes_no answers yes/no directly, jev_score keeps the
+order of the scale. Several questions on the same state: jev_decide_batch.
 
-Call jev_decide only when all of these hold:
-1. There is an actual choice, not a request for an answer, an explanation or an artifact.
-2. The candidate options are already known and fixed.
-3. You already have the context needed to evaluate them; pass it compactly as `state`.
-4. The expected output is "one of these options".
+Call these tools only when all of these hold:
+1. There is an actual decision, not a request for an answer, an explanation or an artifact.
+2. The possible answers are already known and fixed.
+3. You already have the context needed to judge; pass it compactly as `state`.
+4. The expected output is "yes/no", "one of these options" or "a level on this scale".
 
 Reading the result: use `decision` only when `accepted` is true. `accepted: false` means the
 model is not confident enough. It does not mean "no". Decide with your own reasoning instead,
@@ -46,28 +59,66 @@ class McpOption(BaseModel):
 
 
 class McpDecision(BaseModel):
+    type: Literal["choice", "noul", "score"] = Field(
+        default="choice", description="choice, noul (yes/no, no options) or score (levels)"
+    )
     question: str = Field(description="The decision criterion")
-    options: list[McpOption] = Field(min_length=MIN_OPTIONS, max_length=MAX_OPTIONS)
+    options: list[McpOption] | None = Field(
+        default=None,
+        min_length=MIN_OPTIONS,
+        max_length=MAX_OPTIONS,
+        description="choice: the options. score: the levels, lowest first. noul: omit.",
+    )
+    yes_description: str | None = Field(default=None, description="noul only")
+    no_description: str | None = Field(default=None, description="noul only")
     min_selected_probability: float | None = Field(default=None, ge=0.0, le=1.0)
 
+    @model_validator(mode="after")
+    def _fields_match_type(self) -> "McpDecision":
+        if (self.type == "noul") != (self.options is None):
+            raise ValueError("noul takes no options; choice and score need options")
+        return self
 
-def _decision(question: str, options: list[McpOption], threshold: float | None) -> Decision:
+
+def _decision(
+    type_: QuestionType,
+    question: str,
+    options: list[McpOption] | None,
+    threshold: float | None,
+    *,
+    yes_description: str | None = None,
+    no_description: str | None = None,
+) -> Decision:
+    if type_ == "noul":
+        return Decision.noul(
+            question,
+            yes_description=yes_description,
+            no_description=no_description,
+            min_selected_probability=threshold,
+        )
     return Decision(
         question=question,
-        options=tuple(Option(id=o.id, description=o.description) for o in options),
+        options=tuple(Option(id=o.id, description=o.description) for o in options or ()),
         min_selected_probability=threshold,
+        type=type_,
     )
 
 
 def _result(result: DecisionResult) -> dict[str, Any]:
-    return {
+    out: dict[str, Any] = {
+        "type": result.type,
         "decision": {"id": result.decision.id, "description": result.decision.description},
         "probabilities": result.probabilities,
         "selected_probability": result.selected_probability,
         "accepted": result.accepted,
         "threshold": result.threshold,
-        "metadata": result.metadata,
     }
+    if result.score is not None:
+        out["score"] = result.score
+    if result.noul is not None:
+        out["noul"] = result.noul
+    out["metadata"] = result.metadata
+    return out
 
 
 def create_mcp_server(get_service: Callable[[], DecisionService | None]) -> MCPServer:
@@ -92,31 +143,83 @@ def create_mcp_server(get_service: Callable[[], DecisionService | None]) -> MCPS
             # ToolError text reaches the agent; other exceptions are masked by the SDK.
             raise ToolError(f"{error.code}: {error.message}") from error
 
+    async def decide(state: Any, decision: Decision) -> dict[str, Any]:
+        return await run(lambda: _result(service().decide(state=state, decision=decision)))
+
     @mcp.tool(
-        title="Pick one option with a JEV model",
+        title="Yes/no question with a JEV model",
         description=(
-            "Choose one of 2-16 known options for a closed decision (retry/abort, which team, "
-            "which model tier...) using a local JEV decision model. Returns the chosen option, "
-            "a probability per option and `accepted` (confident enough to act on)."
+            "Answer a yes/no question about the state (is it within policy? is the customer "
+            "asking for a refund? ...) with a local JEV decision model. Returns `decision.id` "
+            "`yes` or `no`, `noul` (probability of yes) and `accepted` (confident enough)."
         ),
         annotations=_READ_ONLY,
     )
-    async def jev_decide(
+    async def jev_yes_no(
+        state: str | dict[str, Any] | list[Any],
+        question: str,
+        yes_description: str | None = None,
+        no_description: str | None = None,
+        min_selected_probability: float | None = None,
+    ) -> dict[str, Any]:
+        """Evaluate one yes/no (noul) decision."""
+
+        decision = _decision(
+            "noul",
+            question,
+            None,
+            min_selected_probability,
+            yes_description=yes_description,
+            no_description=no_description,
+        )
+        return await decide(state, decision)
+
+    @mcp.tool(
+        title="Pick one option with a JEV model",
+        description=(
+            "Choose one of 2-16 known options (retry/abort, which team, which model tier...) "
+            "with a local JEV decision model. Returns the chosen option, a probability per "
+            "option and `accepted` (confident enough to act on). For yes/no use jev_yes_no."
+        ),
+        annotations=_READ_ONLY,
+    )
+    async def jev_choose(
         state: str | dict[str, Any] | list[Any],
         question: str,
         options: list[McpOption],
         min_selected_probability: float | None = None,
     ) -> dict[str, Any]:
-        """Evaluate one decision."""
+        """Evaluate one choice decision."""
 
-        decision = _decision(question, options, min_selected_probability)
-        return await run(lambda: _result(service().decide(state=state, decision=decision)))
+        return await decide(
+            state, _decision("choice", question, options, min_selected_probability)
+        )
+
+    @mcp.tool(
+        title="Rate on an ordinal scale with a JEV model",
+        description=(
+            "Place the state on an ordinal scale (urgency, severity, sentiment...) given 2-16 "
+            "levels, lowest first, with a local JEV decision model. Returns the most likely "
+            "level as `decision`, `score` (expected level, 0 = first level) and `accepted`."
+        ),
+        annotations=_READ_ONLY,
+    )
+    async def jev_score(
+        state: str | dict[str, Any] | list[Any],
+        question: str,
+        levels: list[McpOption],
+        min_selected_probability: float | None = None,
+    ) -> dict[str, Any]:
+        """Evaluate one score decision."""
+
+        return await decide(state, _decision("score", question, levels, min_selected_probability))
 
     @mcp.tool(
         title="Several JEV decisions on one state",
         description=(
-            "Evaluate several closed decisions about the same state in one call (cheaper than "
-            "calling jev_decide repeatedly). Returns one result per decision, in order."
+            "Evaluate several closed decisions about the same state in one call, cheaper than "
+            "separate calls. Each decision has a `type` (choice, noul, score) and types can be "
+            "mixed. Returns one result per decision, in order."
         ),
         annotations=_READ_ONLY,
     )
@@ -129,11 +232,14 @@ def create_mcp_server(get_service: Callable[[], DecisionService | None]) -> MCPS
 
         batch = [
             _decision(
+                d.type,
                 d.question,
                 d.options,
                 d.min_selected_probability
                 if d.min_selected_probability is not None
                 else min_selected_probability,
+                yes_description=d.yes_description,
+                no_description=d.no_description,
             )
             for d in decisions
         ]
@@ -158,7 +264,13 @@ def create_mcp_server(get_service: Callable[[], DecisionService | None]) -> MCPS
         return {
             "api_version": API_VERSION,
             "version": __version__,
-            "engine": {"name": engine.name, "model": engine.model, "revision": engine.revision},
+            "engine": {
+                "name": engine.name,
+                "model": engine.model,
+                "revision": engine.revision,
+                "native_types": [t for t in QUESTION_TYPES if t in current.native_types()],
+            },
+            "supported_types": list(QUESTION_TYPES),
             "default_min_selected_probability": current.default_threshold,
             "min_options": MIN_OPTIONS,
             "max_options": MAX_OPTIONS,

@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Protocol, Sequence, runtime_checkable
 
-from .models import Decision, Scores, State
+from .models import Decision, QuestionType, Scores, State
 
 
 @dataclass(frozen=True)
@@ -24,6 +24,9 @@ class EngineInfo:
     native_batch: bool = False
     # False makes the service serialize calls to this adapter behind a lock.
     thread_safe: bool = False
+    # Question types the engine scores natively. The service emulates the others as a
+    # choice over the same options (noul: yes/no, score: the levels).
+    native_types: frozenset[QuestionType] = frozenset({"choice"})
 
 
 @runtime_checkable
@@ -37,7 +40,11 @@ class DecisionAdapter(Protocol):
         """True once the adapter can serve score() calls."""
 
     def score(self, *, state: State, decision: Decision) -> Scores:
-        """Return a probability per option id for one decision."""
+        """Return a probability per option id for one decision.
+
+        `decision.type` is always one of `info().native_types`: noul answers are keyed
+        `yes`/`no`, score answers by the level option ids.
+        """
 
     def score_batch(self, *, state: State, decisions: Sequence[Decision]) -> list[Scores]:
         """Score several decisions sharing one state; same order as `decisions`.

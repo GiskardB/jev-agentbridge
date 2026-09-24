@@ -1,0 +1,10 @@
+# Question types: native vs emulated
+
+| Run | Native | noul acc. | noul IT | noul EN | noul cov. @0.8 (acc.) | score exact | score ±1 | score MAE | score cov. @0.8 (acc.) |
+|---|---|---|---|---|---|---|---|---|---|
+| kev-0.8b-emulated | False | 85.4% | 83.3% | 87.5% | 70.8% (100.0%) | 71.9% | 100.0% | 0.505 | 18.8% (100.0%) |
+| kev-0.8b-native | True | 85.4% | 83.3% | 87.5% | 64.6% (100.0%) | 68.8% | 100.0% | 0.5054 | 21.9% (100.0%) |
+| laya-en-emulated | False | 83.3% | 79.2% | 87.5% | 83.3% (82.5%) | 46.9% | 90.6% | 0.6214 | 21.9% (71.4%) |
+| laya-en-native | True | 79.2% | 79.2% | 79.2% | 72.9% (85.7%) | 43.8% | 90.6% | 0.7067 | 34.4% (63.6%) |
+| laya-multilingual-emulated | False | 79.2% | 75.0% | 83.3% | 79.2% (84.2%) | 62.5% | 84.4% | 0.6479 | 53.1% (70.6%) |
+| laya-multilingual-native | True | 81.2% | 79.2% | 83.3% | 79.2% (84.2%) | 40.6% | 87.5% | 0.7885 | 43.8% (42.9%) |

@@ -13,15 +13,22 @@ from fastapi import APIRouter
 from .. import API_VERSION, __version__
 from ..adapters.registry import available_engines
 from ..core.errors import EngineNotReadyError
-from ..core.models import MAX_OPTIONS, MIN_OPTIONS, Decision, DecisionResult, Option
+from ..core.models import (
+    MAX_OPTIONS,
+    MIN_OPTIONS,
+    QUESTION_TYPES,
+    Decision,
+    DecisionResult,
+    Option,
+)
 from ..core.service import DecisionService
 from .errors import error_response
 from .schemas import (
-    BatchDecideItem,
     BatchDecideRequest,
     BatchDecideResponse,
     DecideRequest,
     DecideResponse,
+    DecisionIn,
     EngineInfoOut,
     ErrorResponse,
     HealthResponse,
@@ -74,12 +81,14 @@ def create_router(get_service: ServiceProvider) -> APIRouter:
                 model=engine.model,
                 revision=engine.revision,
                 native_batch=engine.native_batch,
+                native_types=[t for t in QUESTION_TYPES if t in current.native_types()],
             ),
             available_engines=available_engines(),
             min_options=MIN_OPTIONS,
             max_options=MAX_OPTIONS,
             default_min_selected_probability=current.default_threshold,
             supported_modes=["direct", "shared"],
+            supported_types=list(QUESTION_TYPES),
         )
 
     @router.post("/v1/decide", response_model=DecideResponse, responses=_ERRORS)
@@ -107,20 +116,31 @@ def create_router(get_service: ServiceProvider) -> APIRouter:
     return router
 
 
-def _to_decision(item: DecideRequest | BatchDecideItem, threshold: float | None) -> Decision:
+def _to_decision(item: DecisionIn, threshold: float | None) -> Decision:
+    if item.type == "noul":
+        return Decision.noul(
+            item.question,
+            yes_description=item.yes_description,
+            no_description=item.no_description,
+            min_selected_probability=threshold,
+        )
     return Decision(
         question=item.question,
-        options=tuple(Option(id=o.id, description=o.description) for o in item.options),
+        options=tuple(Option(id=o.id, description=o.description) for o in item.options or ()),
         min_selected_probability=threshold,
+        type=item.type,
     )
 
 
 def _to_response(result: DecisionResult) -> DecideResponse:
     return DecideResponse(
+        type=result.type,
         decision=OptionIn(id=result.decision.id, description=result.decision.description),
         probabilities=result.probabilities,
         selected_probability=result.selected_probability,
         accepted=result.accepted,
         threshold=result.threshold,
+        score=result.score,
+        noul=result.noul,
         metadata=result.metadata,
     )

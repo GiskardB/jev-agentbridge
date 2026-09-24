@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.6.0
+
+- Add: **the three JEV question types** on every endpoint: `choice` (one category, the
+  default), `noul` (yes/no) and `score` (a level on an ordinal scale). A decision takes a
+  `type`. `noul` has no options, only optional `yes_description` / `no_description`, and
+  answers `yes` or `no` with `noul` = P(yes). `score` takes the levels as `options`, lowest
+  first, and answers the most likely level plus `score`, the expected level (0..n−1), computed
+  by the service so it means the same thing for every engine. `accepted` and the threshold work
+  as before. Existing requests are unchanged (`type` defaults to `choice`); responses gain
+  `type`, `score`, `noul` and `metadata.native_type`.
+- Add: **native type paths per engine, off by default.** Adapters declare
+  `EngineInfo.native_types`: Laya and the System One adapters (`kev`, `systemone`) can send
+  `noul` and `score` natively, RizzoFlow as `boolean` and `score`; semif is choice-only. By
+  default the service asks noul and score as a choice over the same options (`yes`/`no`, or the
+  levels) on every engine; `JEV_NATIVE_TYPES=true` (or a list such as `noul`) enables the
+  native paths. `/v1/info` lists `engine.native_types` (native in the running configuration)
+  and `supported_types`. `docker-compose.kev.yml` passes `JEV_NATIVE_TYPES` through.
+- Add: mixed-type batches: `/v1/decide/batch` items can each have their own `type`.
+- Change (MCP): **one tool per type**: `jev_yes_no`, `jev_choose`, `jev_score`.
+  `jev_decide` from 0.5.x is now `jev_choose`. `jev_decide_batch` accepts mixed types. The
+  server instructions and the skill (`integrations/skills/jev-agentbridge`) tell the agent
+  which tool fits which question.
+- Add: SDKs: Python `yes_no()`, `score()` and `type=` on `decide()` / `decide_or_fallback()`;
+  TypeScript `yesNo()`, `score()` and `type` on requests. Both SDKs are now 0.2.0.
+- Fix: `sdk/python/pyproject.toml` was not valid TOML (bare dependency line), so the Python SDK
+  could not be installed with `pip install ./sdk/python`. It installs now.
+- Add: `examples/eval/question_types`: 80 labelled yes/no and scale questions (Italian and
+  English) and a runner to compare native against emulated types on any engine.
+  Measured: native was never better. noul is within noise on Kev-0.8B (85.4% both ways) and
+  Laya; score is equal on Kev (68.8% native, 71.9% emulated) and much worse natively on Laya
+  multilingual (40.6% vs 62.5%). That is why native paths are off by default.
+
 ## 0.5.1
 
 - Add: **`docker-compose.kev.yml`** runs the Kev engine with one command: a Kev model server

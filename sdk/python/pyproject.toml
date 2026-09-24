@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "jev-agentbridge-sdk"
-version = "0.1.0"
+version = "0.2.0"
 description = "Python SDK for JEV-AgentBridge"
 requires-python = ">=3.11"
+dependencies = ["httpx>=0.27.0"]
 
-[project.dependencies]
-httpx>=0.27.0
-
-[project.scripts]
+[tool.setuptools]
+package-dir = { "" = "src" }
+py-modules = ["jev_agent_bridge"]

@@ -1,17 +1,30 @@
 ---
 name: jev-agentbridge
-description: Use when the agent has already reduced a problem to a small, closed set of known options (2-16) and just needs to pick one - e.g. retry vs abort, accept vs reject vs escalate, strategy A vs B vs C. JEV runs a local decision model (through the jev-agentbridge MCP server) to select among options that are already defined; it does not investigate causes, generate the option set, write or plan content, or handle open-ended/high-stakes decisions. Do not call it just because a question can be phrased as yes/no - only call it once the option set is fixed and the relevant context is already gathered.
+description: Use when the agent has already reduced a problem to a closed question with known answers and just needs the judgment - a yes/no check (is this within policy?), one category out of 2-16 (retry vs abort vs escalate, which team), or a level on an ordinal scale (how urgent, how severe). JEV runs a local decision model (through the jev-agentbridge MCP server) with tools jev_yes_no, jev_choose and jev_score; it does not investigate causes, generate the options, write or plan content, or handle open-ended/high-stakes decisions. Do not call it just because a question can be phrased as yes/no - only call it once the answers are fixed and the relevant context is already gathered.
 metadata:
   purpose: discrete-decision-routing
-  version: "0.3.0"
+  version: "0.4.0"
 ---
 
 # JEV-AgentBridge
 
-The tools come from the `jev-agentbridge` MCP server (see `docs/mcp.md` in the repository):
-`jev_decide` (one decision), `jev_decide_batch` (several decisions on the same state) and
-`jev_info` (which engine answers). Harnesses show them with a prefix, e.g.
-`mcp__jev__jev_decide` in Claude Code.
+The tools come from the `jev-agentbridge` MCP server (see `docs/mcp.md` in the repository), one
+per JEV question type:
+
+| Question | Tool | Example |
+|---|---|---|
+| Yes or no? | `jev_yes_no` | "Is the return request within policy?" |
+| Which one of these? | `jev_choose` | "Retry, roll back or escalate?" |
+| Where on this scale? | `jev_score` | "How urgent: low, medium, high, critical?" |
+
+Plus `jev_decide_batch` (several questions on the same state, types can be mixed) and `jev_info`
+(which engine answers). Harnesses show them with a prefix, e.g. `mcp__jev__jev_yes_no` in
+Claude Code.
+
+Use the tool that matches the question. A yes/no question goes to `jev_yes_no`, not to
+`jev_choose` with options "yes"/"no": the answer comes back directly as `yes`/`no`. A scale goes
+to `jev_score` with the levels lowest first, not to `jev_choose`: the score keeps the order and
+tells you how far between two levels the answer is.
 
 ## What this is
 
@@ -26,19 +39,46 @@ and handling uncertainty. JEV only performs the **select one of N** step.
 
 ## The gate
 
-Call `jev_decide` only when all of these are true:
+Call a JEV tool only when all of these are true:
 
-1. There is an actual choice, not a request for an answer, an explanation, or an artifact.
-2. The candidate outcomes are already known and fixed (you are not still inventing them).
-3. The set is small - 2 to 16 options, ideally under 6.
-4. You already have the context needed to evaluate the options (state, constraints, facts).
-5. The expected output is "one of these options", not generated text.
+1. There is an actual decision, not a request for an answer, an explanation, or an artifact.
+2. The possible answers are already known and fixed (yes/no, the options, the levels of the
+   scale), and you are not still inventing them.
+3. For a choice or a scale, the set is small - 2 to 16 entries, ideally under 6.
+4. You already have the context needed to judge (state, constraints, facts).
+5. The expected output is "yes/no", "one of these options" or "a level", not generated text.
 
 If any of these is false, do the missing work first (investigate, gather context, or generate
 the option set) with your own reasoning, then call JEV once the decision is actually a small
 closed choice.
 
 ## Shape of a good call
+
+`jev_yes_no`:
+
+```json
+{
+  "state": "Customer bought the shoes 10 days ago. Policy: returns within 30 days of purchase.",
+  "question": "Is the return request within policy?"
+}
+```
+
+`jev_score` (levels lowest first):
+
+```json
+{
+  "state": "Our largest customer has a demo in 40 minutes and SSO login is broken.",
+  "question": "How urgent is the request?",
+  "levels": [
+    { "id": "low", "description": "Can wait days" },
+    { "id": "medium", "description": "Within the day" },
+    { "id": "high", "description": "Within the hour" },
+    { "id": "critical", "description": "Right now, damage ongoing" }
+  ]
+}
+```
+
+`jev_choose`:
 
 ```json
 {
@@ -76,7 +116,10 @@ know" in JEV's shape. Do the reasoning first.
 
 ## Reading the result
 
-The response has a `decision` (the selected option) and an `accepted` boolean:
+The response has a `decision` (the selected option: `yes`/`no` for `jev_yes_no`, the level for
+`jev_score`) and an `accepted` boolean. `jev_yes_no` also returns `noul`, the probability of
+yes; `jev_score` returns `score`, the expected level (0 = first level; 2.4 on a 0-3 scale
+means "between the third and fourth level, closer to the third").
 
 - `accepted: true` - the selection cleared the configured confidence threshold; use it.
 - `accepted: false` - the selection did **not** clear the threshold. This does not mean "pick a

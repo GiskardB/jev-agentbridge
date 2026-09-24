@@ -32,16 +32,25 @@ JSON responses). `JEV_MCP_ENABLED=false` turns it off.
 
 ## Tools
 
+One tool per JEV question type, so the agent picks the type by picking the tool:
+
 | Tool | Arguments | Returns |
 |---|---|---|
-| `jev_decide` | `state` (string, object or array), `question`, `options` (2–16 `{id, description}`), `min_selected_probability` (optional) | The standard decision: `decision`, `probabilities` (one per option id), `selected_probability`, `accepted`, `threshold`, `metadata` |
-| `jev_decide_batch` | `state`, `decisions` (list of `{question, options, min_selected_probability?}`), `min_selected_probability` (optional, batch default) | `{"decisions": [...]}`, one result per decision, in order |
-| `jev_info` | none | Active engine and model, API version, default threshold, option limits |
+| `jev_yes_no` | `state` (string, object or array), `question`, `yes_description` / `no_description` (optional), `min_selected_probability` (optional) | `decision.id` `yes` or `no`, `noul` (P(yes)), `probabilities`, `selected_probability`, `accepted`, `threshold`, `metadata` |
+| `jev_choose` | `state`, `question`, `options` (2–16 `{id, description}`), `min_selected_probability` (optional) | The chosen option, a probability per option id, `accepted`, `threshold`, `metadata` |
+| `jev_score` | `state`, `question`, `levels` (2–16 `{id, description}`, lowest first), `min_selected_probability` (optional) | The most likely level as `decision`, `score` (expected level, 0 = first), `probabilities`, `accepted`, `metadata` |
+| `jev_decide_batch` | `state`, `decisions` (list of `{type?, question, options?, yes_description?, no_description?, min_selected_probability?}`, types can be mixed), `min_selected_probability` (optional, batch default) | `{"decisions": [...]}`, one result per decision, in order |
+| `jev_info` | none | Active engine and model, its native question types, API version, default threshold, option limits |
 
-All three are marked read-only and idempotent. Errors come back as MCP tool errors carrying the
+The results are the ones `/v1/decide` returns (see [api.md](api.md#question-types)). 0.5.x
+had a single `jev_decide`; it is now `jev_choose`. Harnesses discover tools at connection time,
+so no configuration changes.
+
+All tools are marked read-only and idempotent. Errors come back as MCP tool errors carrying the
 same codes as the REST API: `ENGINE_UNAVAILABLE: ...`, `MODEL_NOT_READY: ...`,
 `INPUT_TOO_LARGE: ...`. The server also sends usage **instructions** at initialization: when to
-call the tool (a closed set of known options, context already gathered) and how to read
+call the tools (a closed question with known answers, context already gathered), which tool
+fits which question, and how to read
 `accepted: false` (decide yourself, it does not mean "no"). Harnesses that support MCP server
 instructions show them to the model automatically.
 
@@ -73,7 +82,7 @@ claude mcp add --transport http --scope project jev http://localhost:8000/mcp  #
 { "mcpServers": { "jev": { "type": "http", "url": "http://localhost:8000/mcp" } } }
 ```
 
-Check with `claude mcp list`. The tools appear as `mcp__jev__jev_decide` and so on.
+Check with `claude mcp list`. The tools appear as `mcp__jev__jev_yes_no` and so on.
 
 ### OpenAI Codex CLI
 
@@ -159,7 +168,7 @@ npx @modelcontextprotocol/inspector
 ```
 
 Connect to `http://localhost:8000/mcp` with the "Streamable HTTP" transport, list the tools and
-call `jev_decide`.
+call `jev_yes_no`.
 
 ## Security
 

@@ -3,14 +3,19 @@
 The service validates the decision, delegates scoring to the configured adapter, then
 applies the same policy for every engine: argmax over option ids, the acceptance
 threshold (per-request override or service default), timing and the metadata envelope.
+
+Question types (choice, noul, score) the adapter does not score natively are emulated as a
+choice over the same options; the score's expected level is computed here, so it means the
+same thing for every engine.
 """
 
 from __future__ import annotations
 
 import contextlib
+import dataclasses
 import threading
 import time
-from typing import Any, Sequence
+from typing import Any, Iterable, Sequence
 
 from .errors import (
     DecisionError,
@@ -20,17 +25,38 @@ from .errors import (
     InvalidDecisionError,
     OptionCountError,
 )
-from .models import MAX_OPTIONS, MIN_OPTIONS, Decision, DecisionResult, Scores, State
+from .models import (
+    MAX_OPTIONS,
+    MIN_OPTIONS,
+    NO_ID,
+    QUESTION_TYPES,
+    YES_ID,
+    Decision,
+    DecisionResult,
+    Scores,
+    State,
+)
 from .ports import DecisionAdapter, EngineInfo
 
 
 class DecisionService:
     """Runs decisions against one adapter with a uniform policy."""
 
-    def __init__(self, adapter: DecisionAdapter, *, default_threshold: float) -> None:
+    def __init__(
+        self,
+        adapter: DecisionAdapter,
+        *,
+        default_threshold: float,
+        native_types: bool | Iterable[str] = True,
+    ) -> None:
         _check_threshold(default_threshold)
         self._adapter = adapter
         self._default_threshold = default_threshold
+        # True: every type the adapter supports goes native. False: everything is asked as a
+        # choice. A set: only those types go native (when the adapter supports them).
+        self._native_types = (
+            native_types if isinstance(native_types, bool) else frozenset(native_types)
+        )
         # Adapters that are not thread-safe are serialized here, so the API can run
         # requests in a thread pool without every adapter re-implementing locking.
         self._lock = (
@@ -44,6 +70,16 @@ class DecisionService:
     def info(self) -> EngineInfo:
         return self._adapter.info()
 
+    def native_types(self) -> frozenset[str]:
+        """Question types scored natively by the engine (the rest are emulated)."""
+
+        supported = frozenset(self._adapter.info().native_types)
+        if self._native_types is False:
+            supported = frozenset()
+        elif self._native_types is not True:
+            supported &= self._native_types
+        return supported | {"choice"}
+
     def is_ready(self) -> bool:
         try:
             return bool(self._adapter.is_ready())
@@ -56,10 +92,15 @@ class DecisionService:
         _validate(decision)
         self._ensure_ready()
         started = time.perf_counter()
+        native = self.native_types()
         with self._lock:
-            scores = self._call(self._adapter.score, state=state, decision=decision)
+            scores = self._call(
+                self._adapter.score, state=state, decision=_as_scored(decision, native)
+            )
         latency_ms = (time.perf_counter() - started) * 1000
-        return self._to_result(decision, scores, mode="direct", latency_ms=latency_ms)
+        return self._to_result(
+            decision, scores, mode="direct", latency_ms=latency_ms, native=native
+        )
 
     def decide_batch(
         self, *, state: State, decisions: Sequence[Decision]
@@ -75,15 +116,19 @@ class DecisionService:
             _validate(decision)
         self._ensure_ready()
         started = time.perf_counter()
+        native = self.native_types()
+        scored = [_as_scored(decision, native) for decision in decisions]
         with self._lock:
-            scores = self._call(self._adapter.score_batch, state=state, decisions=decisions)
+            scores = self._call(self._adapter.score_batch, state=state, decisions=scored)
         latency_ms = (time.perf_counter() - started) * 1000
         if len(scores) != len(decisions):
             raise EngineError(
                 f"Adapter returned {len(scores)} results for {len(decisions)} decisions"
             )
         return [
-            self._to_result(decision, score, mode="shared", latency_ms=latency_ms)
+            self._to_result(
+                decision, score, mode="shared", latency_ms=latency_ms, native=native
+            )
             for decision, score in zip(decisions, scores)
         ]
 
@@ -101,7 +146,13 @@ class DecisionService:
             raise EngineError(f"{type(error).__name__}: {error}") from error
 
     def _to_result(
-        self, decision: Decision, scores: Scores, *, mode: str, latency_ms: float
+        self,
+        decision: Decision,
+        scores: Scores,
+        *,
+        mode: str,
+        latency_ms: float,
+        native: frozenset[str],
     ) -> DecisionResult:
         probabilities = _option_probabilities(decision, scores)
         selected = max(decision.options, key=lambda option: probabilities[option.id])
@@ -118,6 +169,7 @@ class DecisionService:
             "model_revision": info.revision,
             "mode": mode,
             "latency_ms": round(latency_ms, 3),
+            "native_type": decision.type in native,
         }
         if scores.input_tokens is not None:
             metadata["input_tokens"] = scores.input_tokens
@@ -130,7 +182,28 @@ class DecisionService:
             accepted=selected_probability >= threshold,
             threshold=threshold,
             metadata=metadata,
+            type=decision.type,
+            score=_expected_level(decision, probabilities) if decision.type == "score" else None,
+            noul=probabilities[YES_ID] if decision.type == "noul" else None,
         )
+
+
+def _as_scored(decision: Decision, native: frozenset[str]) -> Decision:
+    """The decision as the adapter sees it: unchanged if native, otherwise a plain choice."""
+
+    if decision.type in native:
+        return decision
+    return dataclasses.replace(decision, type="choice")
+
+
+def _expected_level(decision: Decision, probabilities: dict[str, float]) -> float:
+    """Expected level of a score decision: 0 for the first level, len(options) - 1 for the last."""
+
+    total = sum(probabilities.values()) or 1.0
+    expected = sum(
+        index * probabilities[option.id] for index, option in enumerate(decision.options)
+    )
+    return round(expected / total, 4)
 
 
 def _check_threshold(value: float) -> None:
@@ -141,6 +214,12 @@ def _check_threshold(value: float) -> None:
 
 
 def _validate(decision: Decision) -> None:
+    if decision.type not in QUESTION_TYPES:
+        raise InvalidDecisionError(
+            f"Unknown question type {decision.type!r}; expected one of {list(QUESTION_TYPES)}"
+        )
+    if decision.type == "noul" and [o.id for o in decision.options] != [YES_ID, NO_ID]:
+        raise InvalidDecisionError("A noul decision has exactly the options 'yes' and 'no'")
     count = len(decision.options)
     if not MIN_OPTIONS <= count <= MAX_OPTIONS:
         raise OptionCountError(

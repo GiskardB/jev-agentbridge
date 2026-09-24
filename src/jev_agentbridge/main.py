@@ -49,6 +49,7 @@ def create_app(
             app.state.service = DecisionService(
                 create_adapter(settings.engine),
                 default_threshold=settings.min_selected_probability,
+                native_types=settings.native_types,
             )
         async with AsyncExitStack() as stack:
             if mcp is not None:
@@ -57,7 +58,11 @@ def create_app(
 
     app = FastAPI(title="JEV-AgentBridge", version=__version__, lifespan=lifespan)
     app.state.service = (
-        DecisionService(adapter, default_threshold=settings.min_selected_probability)
+        DecisionService(
+            adapter,
+            default_threshold=settings.min_selected_probability,
+            native_types=settings.native_types,
+        )
         if adapter is not None
         else None
     )

@@ -99,6 +99,30 @@ every engine.
 | `revision` | Model revision, or the server URL for remote adapters |
 | `native_batch` | `True` if `score_batch` is cheaper than N `score` calls (shared prefix, one request) |
 | `thread_safe` | `False` makes the service serialize calls behind a lock. Use `False` unless you are sure. |
+| `native_types` | Question types the engine scores natively. Default `{"choice"}`. Add `"noul"` and/or `"score"` only if the model has a real yes/no or ordinal path. |
+
+### Question types
+
+Every decision has a `type`: `choice`, `noul` (yes/no) or `score` (ordinal scale). All three
+reach the adapter in the same shape, a `Decision` with options:
+
+| `decision.type` | `decision.options` | `probabilities` keys to return |
+|---|---|---|
+| `choice` | the options | the option ids |
+| `noul` | `yes`, `no` (descriptions "Yes"/"No" unless the caller gave `yes_description` / `no_description`; `decision.custom_noul_descriptions()` returns them or `None`) | `yes`, `no` |
+| `score` | the levels, **lowest first** | the level ids |
+
+The service only sends types listed in `native_types`, and only when the operator enables them
+with `JEV_NATIVE_TYPES` (off by default). Any other type is **emulated**: it arrives as
+`type="choice"` over the same options, so an adapter that only does choice is already
+complete. The service computes the score's expected level from `probabilities`; do not
+return it (put the backend's own score in `details` if you want it visible).
+
+If your backend's answer for a type is keyed differently (System One and Laya return score
+levels as `"0"`, `"1"`...; RizzoFlow returns `true`/`false`), map it back to the option ids in
+the adapter. Measure native against emulated with
+[`examples/eval/question_types`](../examples/eval/question_types) before declaring a type
+native: a native head is not automatically better.
 
 ### `is_ready()`
 
@@ -319,6 +343,7 @@ Report accuracy per language and coverage at the 95% target, not only overall ac
 - [ ] Probabilities keyed by option id; backend "confidence" only in `details`
 - [ ] Errors mapped to `InputTooLargeError` / `EngineUnavailableError` / `EngineError`
 - [ ] `thread_safe` and `native_batch` set honestly
+- [ ] `native_types` lists only the types the backend really supports, each mapped back to option ids
 - [ ] Registered in `adapters/registry.py`
 - [ ] Dependencies locked, CI and release matrices updated (in-process)
 - [ ] Adapter tests with a fake backend; registry tests extended; ruff and pytest green

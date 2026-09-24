@@ -79,17 +79,30 @@ def make_adapter(model: object | None = None, max_input_tokens: int = 10000):
 class FakeAdapter:
     """DecisionAdapter returning fixed probabilities: first option gets `top`."""
 
-    def __init__(self, top: float = 0.8, ready: bool = True, thread_safe: bool = True) -> None:
+    def __init__(
+        self,
+        top: float = 0.8,
+        ready: bool = True,
+        thread_safe: bool = True,
+        native_types: frozenset[str] = frozenset({"choice"}),
+    ) -> None:
         self.top = top
         self.ready = ready
         self.thread_safe = thread_safe
+        self.native_types = native_types
         self.batch_calls = 0
+        self.seen_types: list[str] = []
         self.error: Exception | None = None
 
     def info(self):
         from jev_agentbridge.core.ports import EngineInfo
 
-        return EngineInfo(name="fake", model="fake-model", thread_safe=self.thread_safe)
+        return EngineInfo(
+            name="fake",
+            model="fake-model",
+            thread_safe=self.thread_safe,
+            native_types=self.native_types,
+        )
 
     def is_ready(self) -> bool:
         return self.ready
@@ -99,6 +112,7 @@ class FakeAdapter:
 
         if self.error is not None:
             raise self.error
+        self.seen_types.append(decision.type)
         rest = (1 - self.top) / (len(decision.options) - 1)
         probabilities = {o.id: rest for o in decision.options}
         probabilities[decision.options[0].id] = self.top

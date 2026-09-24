@@ -36,6 +36,8 @@ services:
       - "8000:8000"
     environment:
       - JEV_KEV_URL=http://kev:8009
+      # false asks noul/score questions as a plain choice (to compare with Kev's native heads).
+      - JEV_NATIVE_TYPES=${JEV_NATIVE_TYPES:-true}
     depends_on:
       kev:
         condition: service_healthy

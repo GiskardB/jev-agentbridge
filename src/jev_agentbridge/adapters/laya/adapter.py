@@ -10,7 +10,7 @@ import os
 from dataclasses import dataclass
 from typing import Any, Sequence
 
-from ...core.models import Decision, Scores, State
+from ...core.models import NO_ID, YES_ID, Decision, Scores, State
 from ...core.ports import EngineInfo
 
 # Values of JEV_LAYA_SUBFOLDER that select Laya's English model (the repository root).
@@ -35,6 +35,15 @@ class LayaConfig:
 
 
 def _question(decision: Decision) -> dict[str, Any]:
+    if decision.type == "noul":
+        # Laya's noul head takes no descriptions: "yes"/"no" are implied by the question.
+        return {"type": "noul", "instructions": decision.question}
+    if decision.type == "score":
+        return {
+            "type": "score",
+            "instructions": decision.question,
+            "criteria": [option.description for option in decision.options],
+        }
     return {
         "type": "choice",
         "instructions": decision.question,
@@ -42,10 +51,23 @@ def _question(decision: Decision) -> dict[str, Any]:
     }
 
 
-def _scores(answer: dict[str, Any]) -> Scores:
+def _scores(answer: dict[str, Any], decision: Decision) -> Scores:
+    details = {"confidence": answer.get("confidence")}
+    if decision.type == "noul":
+        yes = float(answer["noul"])
+        return Scores(probabilities={YES_ID: yes, NO_ID: round(1.0 - yes, 6)}, details=details)
+    if decision.type == "score":
+        # Levels come back keyed by position ("0", "1", ...), lowest first.
+        probabilities = {
+            option.id: float(answer["probabilities"][str(index)])
+            for index, option in enumerate(decision.options)
+        }
+        return Scores(
+            probabilities=probabilities, details={**details, "score": answer.get("score")}
+        )
     return Scores(
         probabilities={key: float(value) for key, value in answer["probabilities"].items()},
-        details={"choice": answer.get("choice"), "confidence": answer.get("confidence")},
+        details={"choice": answer.get("choice"), **details},
     )
 
 
@@ -76,6 +98,7 @@ class LayaAdapter:
             revision=self._subfolder or "english",
             native_batch=True,
             thread_safe=False,
+            native_types=frozenset({"choice", "noul", "score"}),
         )
 
     def is_ready(self) -> bool:
@@ -83,9 +106,12 @@ class LayaAdapter:
 
     def score(self, *, state: State, decision: Decision) -> Scores:
         result = self._agent.predict(state, {"decision": _question(decision)})
-        return _scores(result["answers"]["decision"])
+        return _scores(result["answers"]["decision"], decision)
 
     def score_batch(self, *, state: State, decisions: Sequence[Decision]) -> list[Scores]:
         questions = {str(index): _question(decision) for index, decision in enumerate(decisions)}
         result = self._agent.predict(state, questions)
-        return [_scores(result["answers"][str(index)]) for index in range(len(decisions))]
+        return [
+            _scores(result["answers"][str(index)], decision)
+            for index, decision in enumerate(decisions)
+        ]

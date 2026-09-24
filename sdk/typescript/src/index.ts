@@ -7,27 +7,44 @@ export interface Option {
 
 export type State = string | Record<string, unknown> | unknown[]
 
+/** choice: one option. noul: yes/no (no options). score: options are levels, lowest first. */
+export type QuestionType = 'choice' | 'noul' | 'score'
+
 export interface DecisionRequest {
   state: State
   question: string
-  options: Option[]
+  /** Default 'choice'. */
+  type?: QuestionType
+  /** Required for choice and score; omitted for noul. */
+  options?: Option[]
+  /** noul only: what "yes" / "no" mean, when not obvious. */
+  yes_description?: string
+  no_description?: string
   /** Acceptance threshold for this call; defaults to the service's configured value. */
   min_selected_probability?: number
 }
 
 export interface DecisionResult {
+  type: QuestionType
+  /** Most likely option; for noul `yes` or `no`, for score the level. */
   decision: Option
   /** One probability per option id. */
   probabilities: Record<string, number>
   selected_probability: number
   accepted: boolean
   threshold: number
+  /** score only: expected level, 0 (first level) to options.length - 1. */
+  score: number | null
+  /** noul only: probability of yes. */
+  noul: number | null
   metadata: {
     engine: string
     model: string
     model_revision: string
     mode: 'direct' | 'shared'
     latency_ms: number
+    /** false when the engine lacks this type and the bridge emulated it as a choice. */
+    native_type: boolean
     input_tokens?: number
     engine_details?: Record<string, unknown>
   }
@@ -97,6 +114,19 @@ export class AgentBridgeClient {
 
   decide(request: DecisionRequest): Promise<DecisionResult> {
     return this.post<DecisionResult>('/v1/decide', request)
+  }
+
+  /** noul decision: `decision.id` is 'yes' or 'no', `noul` is P(yes). */
+  yesNo(request: Omit<DecisionRequest, 'type' | 'options'>): Promise<DecisionResult> {
+    return this.decide({ ...request, type: 'noul' })
+  }
+
+  /** score decision over `levels`, lowest first: `score` is the expected level. */
+  score(
+    request: Omit<DecisionRequest, 'type' | 'options' | 'yes_description' | 'no_description'>,
+    levels: Option[],
+  ): Promise<DecisionResult> {
+    return this.decide({ ...request, type: 'score', options: levels })
   }
 
   /**

@@ -45,8 +45,8 @@ them.
 | Layer | Package | Owns | Knows about engines? |
 |---|---|---|---|
 | REST contract | `api/` | Request/response schemas (`schemas.py`), routes, error envelope, OpenAPI | No |
-| MCP layer | `api/mcp.py` | `/mcp` endpoint (streamable HTTP) with `jev_decide`, `jev_decide_batch`, `jev_info`, calling the same `DecisionService` | No |
-| Domain + policy | `core/` | `Option`, `Decision`, `Scores`, `DecisionResult`; validation, argmax, acceptance threshold, timing, standard metadata, domain errors | No |
+| MCP layer | `api/mcp.py` | `/mcp` endpoint (streamable HTTP) with `jev_yes_no`, `jev_choose`, `jev_score`, `jev_decide_batch`, `jev_info`, calling the same `DecisionService` | No |
+| Domain + policy | `core/` | `Option`, `Decision` (with its question type), `Scores`, `DecisionResult`; validation, type emulation, argmax, score expected level, acceptance threshold, timing, standard metadata, domain errors | No |
 | Port | `core/ports.py` | `DecisionAdapter` protocol + `EngineInfo` | Defines the contract |
 | Adapters | `adapters/<name>/` | Scoring only: turn a `Decision` into one probability per option id; own config from own env vars | Each knows only itself |
 | Composition | `adapters/registry.py`, `main.py` | Pick the adapter from `JEV_ENGINE`, build the app | Only the registry |
@@ -57,6 +57,26 @@ across engines. Before 0.4.0, for example, semif returned probabilities keyed by
 `A`/`B` while laya and rizzoflow used option ids. Each engine also re-implemented the
 threshold, and the per-request threshold never reached any of them.
 
+## Question types
+
+JEV questions come in three types: `choice` (one category), `noul` (yes/no) and `score`
+(a level on an ordinal scale). The domain carries all three as a `Decision` with options, so the
+port does not change: a noul has the options `yes`/`no`, a score has its levels, lowest first.
+
+```mermaid
+flowchart LR
+    D["Decision<br/>type = noul | score | choice"] --> Q{"type in engine's<br/>native_types?"}
+    Q -- yes --> N["adapter scores it natively<br/>(Laya, Kev heads; RizzoFlow boolean/score)"]
+    Q -- no --> E["service emulates it:<br/>same options as a choice"]
+    N --> R["probabilities per option id"]
+    E --> R
+    R --> S["service: argmax · threshold<br/>score = Σ index × p · noul = p(yes)"]
+```
+
+The expected level and P(yes) are computed by the service, not taken from the engine, so they
+mean the same thing whatever answers. `metadata.native_type` records which path was used, and
+`JEV_NATIVE_TYPES=false` forces emulation to compare the two.
+
 ## Request flow
 
 ```mermaid
@@ -66,15 +86,16 @@ sequenceDiagram
     participant S as DecisionService
     participant P as Adapter (laya / semif / kev / ...)
 
-    C->>A: POST /v1/decide {state, question, options, min_selected_probability?}
-    A->>A: schema validation (2-16 options, threshold 0..1) → 422 on error
+    C->>A: POST /v1/decide {type?, state, question, options?, min_selected_probability?}
+    A->>A: schema validation (type vs options, 2-16 options, threshold 0..1) → 422 on error
     A->>S: decide(state, Decision)  [thread pool, event loop stays free]
-    S->>S: validate (unique ids, counts, threshold) → 400 on error
+    S->>S: validate (type, unique ids, counts, threshold) → 400 on error
+    S->>S: emulate the type as a choice if the engine lacks it
     S->>P: score(state, decision)  [serialized if adapter not thread-safe]
     P-->>S: Scores{probabilities by option id, input_tokens?, details}
-    S->>S: argmax · accepted = p ≥ threshold · metadata
+    S->>S: argmax · accepted = p ≥ threshold · score / noul · metadata
     S-->>A: DecisionResult
-    A-->>C: 200 {decision, probabilities, selected_probability, accepted, threshold, metadata}
+    A-->>C: 200 {type, decision, probabilities, selected_probability, accepted, threshold, score, noul, metadata}
 ```
 
 `/v1/decide/batch` follows the same path through `score_batch()`. Adapters with a cheaper shared
@@ -85,7 +106,7 @@ Laya, rizzoflow and the System One adapters send one request with all the questi
 
 ```python
 class DecisionAdapter(Protocol):
-    def info(self) -> EngineInfo: ...          # name, model, revision, native_batch, thread_safe
+    def info(self) -> EngineInfo: ...          # name, model, revision, native_batch, thread_safe, native_types
     def is_ready(self) -> bool: ...
     def score(self, *, state, decision: Decision) -> Scores: ...
     def score_batch(self, *, state, decisions: Sequence[Decision]) -> list[Scores]: ...
@@ -121,7 +142,8 @@ package in `adapters/<name>/` plus one line in `adapters/registry.py`. Nothing i
 | any, with `-e JEV_ENGINE=systemone` | `systemone` | Generic System One client: hosted Jev, Kev, RizzoFlow or any compatible server | `JEV_SYSTEMONE_URL`, `JEV_SYSTEMONE_MODEL`, `JEV_SYSTEMONE_API_KEY`, `JEV_SYSTEMONE_TIMEOUT_SECONDS` |
 
 Service-wide settings: `JEV_ENGINE`, `JEV_MIN_SELECTED_PROBABILITY` (default threshold, 0.60),
-`JEV_HOST`, `JEV_PORT`.
+`JEV_NATIVE_TYPES` (default `true`; `false` emulates noul and score as a choice on every
+engine), `JEV_MCP_ENABLED`, `JEV_HOST`, `JEV_PORT`.
 
 ## Where it sits in an agent
 
@@ -142,6 +164,6 @@ decision type with `jev-eval` (see [performance.md](performance.md#accuracy-and-
 
 ## Separation of concerns
 
-The Bridge answers: *"Given this state, criterion and these options, which option scores highest,
-and is it confident enough?"* It does not orchestrate, generate text, or resolve its own
+The Bridge answers: *"Given this state and this closed question (yes/no, one of these options,
+or a level on this scale), what is the most likely answer, and is it confident enough?"* It does not orchestrate, generate text, or resolve its own
 uncertainty. `accepted=false` hands the decision back to the caller.

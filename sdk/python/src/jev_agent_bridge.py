@@ -34,37 +34,83 @@ class AgentBridgeClient:
         *,
         state: str | dict[str, Any] | list[Any],
         question: str,
-        options: list[dict[str, str]],
+        options: list[dict[str, str]] | None = None,
+        type: str = "choice",
+        yes_description: str | None = None,
+        no_description: str | None = None,
         min_selected_probability: float | None = None,
     ) -> dict[str, Any]:
-        """Evaluate a single decision.
+        """Evaluate a single decision of any type (``choice``, ``noul``, ``score``).
 
-        Returns a dict with ``decision``, ``probabilities``, ``selected_probability``,
-        ``accepted``, ``threshold`` and ``metadata``.
+        Returns a dict with ``type``, ``decision``, ``probabilities``,
+        ``selected_probability``, ``accepted``, ``threshold``, ``score`` (score only),
+        ``noul`` (noul only) and ``metadata``.
         """
-        body: dict[str, Any] = {"state": state, "question": question, "options": options}
-        if min_selected_probability is not None:
-            body["min_selected_probability"] = min_selected_probability
+        body: dict[str, Any] = {"type": type, "state": state, "question": question}
+        optional = {
+            "options": options,
+            "yes_description": yes_description,
+            "no_description": no_description,
+            "min_selected_probability": min_selected_probability,
+        }
+        body.update({key: value for key, value in optional.items() if value is not None})
         resp = self._client.post(f"{self._base_url}/v1/decide", json=body)
         resp.raise_for_status()
         return resp.json()
+
+    def yes_no(
+        self,
+        *,
+        state: str | dict[str, Any] | list[Any],
+        question: str,
+        yes_description: str | None = None,
+        no_description: str | None = None,
+        min_selected_probability: float | None = None,
+    ) -> dict[str, Any]:
+        """A noul (yes/no) decision: ``decision.id`` is ``yes`` or ``no``, ``noul`` is P(yes)."""
+        return self.decide(
+            state=state,
+            question=question,
+            type="noul",
+            yes_description=yes_description,
+            no_description=no_description,
+            min_selected_probability=min_selected_probability,
+        )
+
+    def score(
+        self,
+        *,
+        state: str | dict[str, Any] | list[Any],
+        question: str,
+        levels: list[dict[str, str]],
+        min_selected_probability: float | None = None,
+    ) -> dict[str, Any]:
+        """A score decision over ``levels`` (lowest first): ``score`` is the expected level."""
+        return self.decide(
+            state=state,
+            question=question,
+            options=levels,
+            type="score",
+            min_selected_probability=min_selected_probability,
+        )
 
     def decide_or_fallback(
         self,
         *,
         state: str | dict[str, Any] | list[Any],
         question: str,
-        options: list[dict[str, str]],
         fallback: Callable[[dict[str, Any]], str],
+        options: list[dict[str, str]] | None = None,
+        type: str = "choice",
         min_selected_probability: float | None = None,
     ) -> GateOutcome:
         """Gate pattern: use JEV when it is confident, otherwise call ``fallback``.
 
-        ``fallback`` receives the request dict ({state, question, options}) and must
-        return one of the option ids — typically by asking your LLM. It is also used
-        when the Bridge is down, so the gate never breaks the agent.
+        ``fallback`` receives the request dict ({state, question, options, type}) and must
+        return one of the option ids (``yes``/``no`` for noul) — typically by asking your
+        LLM. It is also used when the Bridge is down, so the gate never breaks the agent.
         """
-        request = {"state": state, "question": question, "options": options}
+        request = {"state": state, "question": question, "options": options, "type": type}
         try:
             result = self.decide(**request, min_selected_probability=min_selected_probability)
         except httpx.HTTPError as error:
@@ -82,7 +128,8 @@ class AgentBridgeClient:
     ) -> list[dict[str, Any]]:
         """Evaluate multiple decisions sharing one state.
 
-        ``decisions`` items have ``question``, ``options`` and optionally
+        ``decisions`` items have ``question``, optionally ``type`` (``choice`` default,
+        ``noul``, ``score``; types can be mixed), ``options`` (not for noul) and
         ``min_selected_probability``. Returns one result per decision.
         """
         body: dict[str, Any] = {"state": state, "decisions": decisions}

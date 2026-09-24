@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from typing import Any, Sequence
 
 from ...core.errors import EngineError, EngineUnavailableError
-from ...core.models import Decision, Scores, State
+from ...core.models import NO_ID, YES_ID, Decision, Scores, State
 from ...core.ports import EngineInfo
 
 
@@ -46,6 +46,18 @@ class SystemOneConfig:
 
 
 def _question(decision: Decision) -> dict[str, Any]:
+    if decision.type == "noul":
+        question: dict[str, Any] = {"type": "noul", "instructions": decision.question}
+        custom = decision.custom_noul_descriptions()
+        if custom:
+            question["criteria"] = {"true": custom[YES_ID], "false": custom[NO_ID]}
+        return question
+    if decision.type == "score":
+        return {
+            "type": "score",
+            "instructions": decision.question,
+            "criteria": [option.description for option in decision.options],
+        }
     return {
         "type": "choice",
         "instructions": decision.question,
@@ -54,15 +66,29 @@ def _question(decision: Decision) -> dict[str, Any]:
 
 
 def _scores(answer: dict[str, Any], decision: Decision) -> Scores:
-    if answer.get("type") != "choice" or "probabilities" not in answer:
+    if answer.get("type") != decision.type:
         raise EngineError(f"System One server returned an unexpected answer: {answer!r}")
-    ids = {option.id for option in decision.options}
-    return Scores(
-        probabilities={
+    try:
+        if decision.type == "noul":
+            yes = float(answer["noul"])
+            return Scores(probabilities={YES_ID: yes, NO_ID: round(1.0 - yes, 6)})
+        details = {"confidence": answer.get("confidence")}
+        if decision.type == "score":
+            # Levels come back keyed by position ("0", "1", ...), lowest first.
+            probabilities = {
+                option.id: float(answer["probabilities"][str(index)])
+                for index, option in enumerate(decision.options)
+            }
+            return Scores(
+                probabilities=probabilities, details={**details, "score": answer.get("score")}
+            )
+        ids = {option.id for option in decision.options}
+        probabilities = {
             key: float(value) for key, value in answer["probabilities"].items() if key in ids
-        },
-        details={"choice": answer.get("choice"), "confidence": answer.get("confidence")},
-    )
+        }
+    except (KeyError, TypeError, ValueError) as error:
+        raise EngineError(f"System One server returned an unexpected answer: {answer!r}") from error
+    return Scores(probabilities=probabilities, details={"choice": answer.get("choice"), **details})
 
 
 class SystemOneAdapter:
@@ -83,6 +109,7 @@ class SystemOneAdapter:
             revision=self._base_url,
             native_batch=True,  # every question of a batch goes in one request
             thread_safe=True,  # stateless HTTP client
+            native_types=frozenset({"choice", "noul", "score"}),
         )
 
     def is_ready(self) -> bool:

@@ -40,14 +40,19 @@ def test_initialize_and_list_tools() -> None:
         assert init["serverInfo"]["name"] == "jev-agentbridge"
         assert "accepted" in init["instructions"]
         tools = {t["name"]: t for t in _rpc(client, "tools/list", id_=2)["result"]["tools"]}
-        assert set(tools) == {"jev_decide", "jev_decide_batch", "jev_info"}
-        assert tools["jev_decide"]["annotations"]["readOnlyHint"] is True
-        assert "options" in tools["jev_decide"]["inputSchema"]["properties"]
+        assert set(tools) == {
+            "jev_yes_no", "jev_choose", "jev_score", "jev_decide_batch", "jev_info"
+        }
+        assert all(t["annotations"]["readOnlyHint"] is True for t in tools.values())
+        assert "options" in tools["jev_choose"]["inputSchema"]["properties"]
+        assert "options" not in tools["jev_yes_no"]["inputSchema"]["properties"]
+        assert "levels" in tools["jev_score"]["inputSchema"]["properties"]
+        assert "jev_yes_no" in init["instructions"]
 
 
 def test_decide_matches_the_rest_contract() -> None:
     with _client(FakeAdapter(top=0.7)) as client:
-        result = _call(client, "jev_decide", {
+        result = _call(client, "jev_choose", {
             "state": {"deploy": "failed"},
             "question": "Next?",
             "options": OPTIONS,
@@ -78,11 +83,40 @@ def test_batch_and_info() -> None:
         assert info["engine"]["name"] == "fake" and info["api_version"] == "v1"
 
 
+def _payload(result: dict) -> dict:
+    assert result.get("isError") is not True, result
+    return result.get("structuredContent") or json.loads(result["content"][0]["text"])
+
+
+def test_yes_no_and_score_tools() -> None:
+    with _client(FakeAdapter(top=0.7)) as client:
+        yes_no = _payload(_call(client, "jev_yes_no", {"state": "s", "question": "Refund?"}))
+        assert yes_no["type"] == "noul" and yes_no["decision"]["id"] == "yes"
+        assert yes_no["noul"] == 0.7
+        levels = [{"id": "low", "description": "Low"}, {"id": "mid", "description": "Mid"},
+                  {"id": "high", "description": "High"}]
+        score = _payload(_call(client, "jev_score", {"state": "s", "question": "Urgency?",
+                                                     "levels": levels}))
+        assert score["type"] == "score" and score["decision"]["id"] == "low"
+        assert score["score"] == 0.45  # 0*0.7 + 1*0.15 + 2*0.15
+        mixed = _payload(_call(client, "jev_decide_batch", {
+            "state": "s",
+            "decisions": [{"type": "noul", "question": "a?"},
+                          {"type": "score", "question": "b?", "options": levels},
+                          {"question": "c?", "options": OPTIONS}],
+        }))
+        assert [d["type"] for d in mixed["decisions"]] == ["noul", "score", "choice"]
+        bad = _call(client, "jev_decide_batch", {
+            "state": "s", "decisions": [{"type": "noul", "question": "a?", "options": OPTIONS}]
+        })
+        assert bad["isError"] is True
+
+
 def test_engine_errors_become_tool_errors() -> None:
     adapter = FakeAdapter()
     adapter.error = RuntimeError("boom")
     with _client(adapter) as client:
-        result = _call(client, "jev_decide", {"state": "s", "question": "q", "options": OPTIONS})
+        result = _call(client, "jev_choose", {"state": "s", "question": "q", "options": OPTIONS})
         assert result["isError"] is True
         assert "ENGINE_ERROR" in result["content"][0]["text"]
 

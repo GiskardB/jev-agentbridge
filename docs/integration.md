@@ -15,7 +15,7 @@ flowchart LR
     L --> Act
 ```
 
-Exposing `jev_decide` as a tool *the LLM calls* (the MCP endpoint, see [mcp.md](mcp.md)) saves nothing. The
+Exposing JEV as a tool *the LLM calls* (the MCP endpoint, see [mcp.md](mcp.md)) saves nothing. The
 LLM has already been invoked to emit the tool call, and a second LLM turn is needed to read the
 result. Use that only when you want an auditable, calibrated selection step inside an agent.
 
@@ -114,6 +114,15 @@ result = client.decide(
     ],
 )
 print(result["decision"]["id"])
+
+# Yes/no and ordinal questions (see api.md#question-types)
+refund = client.yes_no(state=message, question="Is the customer asking for a refund?")
+urgency = client.score(
+    state=ticket,
+    question="How urgent is the request?",
+    levels=[{"id": "low", "description": "Can wait"}, {"id": "high", "description": "Now"}],
+)
+print(refund["decision"]["id"], refund["noul"], urgency["score"])
 ```
 
 ## TypeScript SDK
@@ -122,11 +131,13 @@ print(result["decision"]["id"])
 import { AgentBridgeClient } from 'jev-agentbridge-sdk'
 const client = new AgentBridgeClient('http://localhost:8000')
 const result = await client.decide({...})
+const refund = await client.yesNo({ state: message, question: 'Is the customer asking for a refund?' })
+const urgency = await client.score({ state: ticket, question: 'How urgent is it?' }, levels)
 ```
 
 ## Coding agents (MCP)
 
 Claude Code, Codex CLI, Cursor, VS Code, Gemini CLI, OpenCode and other MCP-capable harnesses
 connect to the bridge's `/mcp` endpoint. Setup for each is in [mcp.md](mcp.md). This exposes
-`jev_decide` as a tool the LLM calls; see the note at the top of this page on why that does not
-reduce LLM cost.
+`jev_yes_no`, `jev_choose` and `jev_score` as tools the LLM calls; see the note at the top of
+this page on why that does not reduce LLM cost.

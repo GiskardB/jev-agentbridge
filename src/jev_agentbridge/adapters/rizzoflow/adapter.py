@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from typing import Any, Sequence
 
 from ...core.errors import EngineUnavailableError
-from ...core.models import Decision, Scores, State
+from ...core.models import NO_ID, YES_ID, Decision, Scores, State
 from ...core.ports import EngineInfo
 
 
@@ -35,23 +35,46 @@ class RizzoFlowConfig:
 
 
 def _question(decision: Decision) -> dict[str, Any]:
-    return {
+    question: dict[str, Any] = {
         "type": "choice",
         "instructions": decision.question,
         # Without this, RizzoFlow's default policy lets the model abstain ("cannot
         # determine"); the service's `accepted` flag already carries the confidence signal.
         "policy": {"allow_abstain": False},
-        "options": [{"id": o.id, "description": o.description} for o in decision.options],
     }
+    if decision.type == "noul":
+        question["type"] = "boolean"
+        # Otherwise RizzoFlow's own defaults ("Yes. The evidence supports...") apply.
+        custom = decision.custom_noul_descriptions()
+        if custom:
+            question["true_description"] = custom[YES_ID]
+            question["false_description"] = custom[NO_ID]
+    elif decision.type == "score":
+        question["type"] = "score"
+        question["levels"] = [option.description for option in decision.options]
+    else:
+        question["options"] = [
+            {"id": o.id, "description": o.description} for o in decision.options
+        ]
+    return question
 
 
-def _scores(answer: dict[str, Any]) -> Scores:
+def _scores(answer: dict[str, Any], decision: Decision) -> Scores:
     # Keys starting with "__" are RizzoFlow-internal (e.g. an abstain bucket).
-    probabilities = {
+    raw = {
         key: float(value)
         for key, value in answer["probabilities"].items()
         if not key.startswith("__")
     }
+    if decision.type == "noul":
+        probabilities = {YES_ID: raw["true"], NO_ID: raw["false"]}
+    elif decision.type == "score":
+        # Levels come back keyed by position ("0", "1", ...), lowest first.
+        probabilities = {
+            option.id: raw[str(index)] for index, option in enumerate(decision.options)
+        }
+    else:
+        probabilities = raw
     return Scores(probabilities=probabilities, details={"status": answer.get("status")})
 
 
@@ -72,6 +95,7 @@ class RizzoFlowAdapter:
             model=self._base_url,
             native_batch=True,
             thread_safe=True,  # stateless HTTP client
+            native_types=frozenset({"choice", "noul", "score"}),
         )
 
     def is_ready(self) -> bool:
@@ -97,9 +121,12 @@ class RizzoFlowAdapter:
 
     def score(self, *, state: State, decision: Decision) -> Scores:
         result = self._post(state, {"decision": _question(decision)}, mode="direct")
-        return _scores(result["answers"]["decision"])
+        return _scores(result["answers"]["decision"], decision)
 
     def score_batch(self, *, state: State, decisions: Sequence[Decision]) -> list[Scores]:
         questions = {str(index): _question(decision) for index, decision in enumerate(decisions)}
         result = self._post(state, questions, mode="shared")
-        return [_scores(result["answers"][str(index)]) for index in range(len(decisions))]
+        return [
+            _scores(result["answers"][str(index)], decision)
+            for index, decision in enumerate(decisions)
+        ]

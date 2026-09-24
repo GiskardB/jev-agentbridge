@@ -11,6 +11,8 @@ ARG ENGINE=laya
 ENV JEV_ENGINE=${ENGINE}
 # Bound to all interfaces in the container, so the MCP endpoint accepts any Host header.
 ENV JEV_HOST=0.0.0.0
+# Laya model: multilingual unless overridden (-e JEV_LAYA_SUBFOLDER=english for the English one).
+ENV JEV_LAYA_SUBFOLDER=multilingual
 RUN uv sync --frozen --no-dev
 
 COPY src/ ./src/

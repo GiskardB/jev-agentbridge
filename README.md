@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img alt="version" src="https://img.shields.io/badge/version-0.5.0-informational">
+  <img alt="version" src="https://img.shields.io/badge/version-0.5.1-informational">
   <img alt="api" src="https://img.shields.io/badge/API-v1-informational">
   <img alt="python" src="https://img.shields.io/badge/python-3.11%2B-blue">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-green">
@@ -112,31 +112,40 @@ hardware. Remote adapters are written per protocol: TypeSafe's System One API
 
 | Image tag | `JEV_ENGINE` | Kind | Engine | Notes |
 |---|---|---|---|---|
-| `:latest` / `:laya` | `laya` (default) | in-process | [Laya](https://github.com/NandhaKishorM/laya) non-autoregressive encoders | `JEV_LAYA_SUBFOLDER=multilingual` (measured) or `typed-decisions` (not yet measured) selects another Laya model |
+| `:latest` / `:laya` | `laya` (default) | in-process | [Laya](https://github.com/NandhaKishorM/laya) non-autoregressive encoders | Multilingual Laya model by default (since 0.5.1); `JEV_LAYA_SUBFOLDER=english` for the English one, `typed-decisions` (not yet measured) for the third |
 | `:semif` | `semif` | in-process | Qwen3-0.6B causal LM, next-token scoring of option letters | `JEV_SEMIF_PROMPT_VERSION=direct-options-v2` scores better than the default v1 |
-| `:kev` | `kev` | remote | [Kev](https://github.com/jaredpalmer/kev) 0.8B / 4B / 9B, served by `python -m kev.serve` | `JEV_KEV_URL` (default `http://localhost:8009`); CUDA, ROCm or Apple Silicon recommended |
+| `:kev` | `kev` | remote | [Kev](https://github.com/jaredpalmer/kev) 0.8B / 4B / 9B. Best measured engine; run it with `docker-compose.kev.yml` | `JEV_KEV_URL` (default `http://localhost:8009`); GPU recommended for 4B / 9B |
 | any image + `-e JEV_ENGINE=systemone` | `systemone` | remote | Any System One server. Tested with Kev; hosted Jev and RizzoFlow's `/v1/systemone` should work but are not yet tested | `JEV_SYSTEMONE_URL`, `JEV_SYSTEMONE_MODEL`, `JEV_SYSTEMONE_API_KEY` |
 | `:rizzoflow` | `rizzoflow` | remote | [RizzoFlow](https://github.com/Rizzo-AI-Academy/rizzo-flow) through its native `/v1/decisions` (llama.cpp, Spark-X2.5 GGUF) | `JEV_RIZZOFLOW_URL` |
 
 The engine is baked into each image, so the tag alone selects it (`-e JEV_ENGINE=...`
 overrides it).
 
-<details>
-<summary>Running Kev behind the bridge</summary>
+### Running Kev: one command
 
-Kev needs Python 3.12–3.13 and its own environment. Its server listens on `127.0.0.1` only, so
-run the bridge on the same host from source (or with `--network host` on Linux):
+Kev needs Python 3.12+ and `torch < 2.9`, so it runs as its own container (`:kev-server`) next to
+the bridge (`:kev`). [`docker-compose.kev.yml`](docker-compose.kev.yml) wires them together:
+
+```bash
+docker compose -f docker-compose.kev.yml up
+```
+
+REST and MCP are on `http://localhost:8000` as usual. The first start downloads Kev-0.8B (about
+2 GB) and can take several minutes; the bridge starts when Kev is healthy. Kev-0.8B runs on CPU.
+For Kev-4B or 9B, build the server image for CUDA and enable the GPU block in the compose file
+(see the comments in [`docker/kev-server/Dockerfile`](docker/kev-server/Dockerfile)), then set
+`KEV_RUN=jaredpalmer/kev-4b`.
+
+<details>
+<summary>Without Docker</summary>
 
 ```bash
 git clone https://github.com/jaredpalmer/kev && cd kev
 uv sync --extra serve
-uv run --extra serve python -m kev.serve --run jaredpalmer/kev-4b --port 8009
+uv run --extra serve python -m kev.serve --run jaredpalmer/kev-0.8b --port 8009
 # in this repo, in another terminal
 JEV_ENGINE=kev uv run python -m uvicorn jev_agentbridge.main:app --port 8000
 ```
-
-Use `jaredpalmer/kev-0.8b` on a machine without a GPU, and `kev-9b` when accuracy matters more
-than memory.
 </details>
 
 **Hardware.** The published images use CPU PyTorch, so in-process engines run on CPU there.
@@ -151,10 +160,11 @@ Check your own hardware with `python -m benchmarks.run --engine <name>`.
 Requires Docker. Nothing to build:
 
 ```bash
-docker run -p 8000:8000 ghcr.io/giskardb/jev-agentbridge:latest
+docker run -p 8000:8000 ghcr.io/giskardb/jev-agentbridge:latest      # laya, starts in seconds
+docker compose -f docker-compose.kev.yml up                          # Kev: more accurate, see Engines
 ```
 
-The first start downloads the model (about 30–40 s with a good connection). Then:
+The first start downloads the model (about 30–40 s for laya with a good connection). Then:
 
 ```bash
 curl -X POST http://localhost:8000/v1/decide \

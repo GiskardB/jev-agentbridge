@@ -114,7 +114,7 @@ package in `adapters/<name>/` plus one line in `adapters/registry.py`. Nothing i
 
 | Image tag | `JEV_ENGINE` | Adapter | Engine-specific settings |
 |---|---|---|---|
-| `:latest` / `:laya` | `laya` (default) | Laya encoder, non-autoregressive | `JEV_LAYA_MODEL_NAME`, `JEV_LAYA_SUBFOLDER` (`multilingual` for non-English), `JEV_MODEL_DEVICE` |
+| `:latest` / `:laya` | `laya` (default) | Laya encoder, non-autoregressive | `JEV_LAYA_MODEL_NAME`, `JEV_LAYA_SUBFOLDER` (default `multilingual`; `english` for the English model), `JEV_MODEL_DEVICE` |
 | `:semif` | `semif` | Causal LM, next-token scoring of option letters A–P | `JEV_MODEL_NAME`, `JEV_MODEL_REVISION`, `JEV_MODEL_DEVICE`, `JEV_MAX_INPUT_TOKENS`, `JEV_SEMIF_PROMPT_VERSION` (`direct-options-v1` default, `direct-options-v2` recommended) |
 | `:rizzoflow` | `rizzoflow` | HTTP client to a separately-run RizzoFlow server (native `/v1/decisions`) | `JEV_RIZZOFLOW_URL`, `JEV_RIZZOFLOW_TIMEOUT_SECONDS` |
 | `:kev` | `kev` | System One client preset for a [Kev](https://github.com/jaredpalmer/kev) server (`python -m kev.serve`) | `JEV_KEV_URL` (default `http://localhost:8009`), `JEV_KEV_MODEL` (default `kev-latest`), `JEV_KEV_API_KEY`, `JEV_KEV_TIMEOUT_SECONDS` |

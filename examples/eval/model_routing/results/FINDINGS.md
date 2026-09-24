@@ -1,7 +1,7 @@
 # Model routing evaluation: findings
 
-Based on `results/REPORT.md` (4 configurations, 240 requests each, `failed_requests: 0` in every
-run). Step 5 (LLM baseline) was not run — see question 5.
+Based on `results/REPORT.md` (5 configurations, 240 requests each, `failed_requests: 0` in every
+run, including the LLM baseline from step 5).
 
 ## 1. Best overall accuracy
 
@@ -45,28 +45,41 @@ every run):
 3. `en-medium-12` — expected **medium**, got **small** at p=0.96: "Convert this short Python
    script that reads a JSON file into Node.js."
 
+(llm-baseline also shows "9 confident errors", all at p=1.00 — but an LLM's one-word answer has
+no real probability distribution behind it, so `run_eval.py score` treats every external
+prediction as maximally confident by convention. That's not comparable to JEV's calibrated
+per-option probability; it just means the LLM was wrong on 9/240 with nothing to gate on.)
+
 laya-en and semif-v1 having zero confident errors is notable given their mediocre raw accuracy:
 when they're wrong, they tend to be wrong at low confidence, which is exactly what a
 threshold-gated deployment needs — it's *why* laya-en gets any usable coverage at all.
 
 ## 5. Distance from the LLM baseline
 
-**Not measured.** Step 5 is optional and needs a live LLM API call for all 240 rows; an
-`OPENROUTER_API_KEY` is present in this environment but `CAVE_OPENROUTER=0` indicates it's
-deliberately disabled here, and spending real API budget on 240 calls isn't something to do
-without asking first. If you want this filled in, say so and I'll run it and update this file plus
-`results/llm-baseline.summary.json`.
+Measured: `qwen/qwen3-32b` via OpenRouter, temperature 0, same prompt as `INSTRUCTIONS.md`,
+scored as `llm-baseline` in `results/llm-baseline.summary.json`.
+
+**96.2% accuracy** (EN 95.8%, IT 96.7%) — 36.6 points above laya-en's 59.6%, and better balanced
+across languages (laya-en drops 20.8 points EN→IT; the LLM baseline actually does marginally
+*better* in Italian). It's also right on every single `small` row (100% vs laya-en's 45.0%), the
+tier laya-en struggles with most.
+
+The gap has a large latency cost, though: **p50 9052ms** vs laya-en's 970ms (~9.3x slower) — this
+particular OpenRouter model runs with reasoning/chain-of-thought enabled by default (visible in
+the raw API response), which is almost certainly most of that latency; a non-reasoning model would
+likely close some of the speed gap at some accuracy cost, but that's a different measurement.
 
 ## 6. Recommendation
 
-**Use JEV for routing only on the confident subset, not as a full replacement yet.** laya-en at
-threshold 0.55 is the one configuration that clears the 95%-accuracy bar, but only on 12.1% of
-traffic — worth wiring in as a gate (skip the LLM call on that slice, fall back to the LLM
-otherwise) but not enough coverage to call this "solved." None of the four configurations is
-usable for Italian on its own (best IT accuracy is 49.2%, well under any reasonable bar). Do not
-ship laya-multilingual or semif-v1 for this task as configured — they're wrong more often than
-right and, worse, wrong with the *opposite* systematic bias from the other two, which would make
-mixing configurations unpredictable.
+**Use JEV for routing only on the confident subset, not as a full replacement.** The accuracy gap
+to the LLM baseline (59.6% vs 96.2%) is too large to route on laya-en alone, but the 12.1% of
+traffic where laya-en's own confidence clears 0.55 is exactly the slice where it agrees with the
+95%-accuracy bar — gate on that slice (skip the LLM call, fall back to it otherwise) and take the
+free ~9s + cost saving there; send everything else to the LLM as today. None of the four JEV
+configurations is usable for Italian on its own (best IT accuracy is 49.2%, against 96.7% for the
+LLM). Do not ship laya-multilingual or semif-v1 for this task as configured — they're wrong more
+often than right and, worse, wrong with the *opposite* systematic bias from the other two, which
+would make mixing configurations unpredictable.
 
 ## 7. Possibly wrong or ambiguous labels
 

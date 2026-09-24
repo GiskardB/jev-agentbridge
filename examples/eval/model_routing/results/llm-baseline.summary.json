@@ -1,0 +1,167 @@
+{
+  "label": "llm-baseline",
+  "source": "external",
+  "dataset": "model_routing.jsonl",
+  "missing_ids": [],
+  "samples": 240,
+  "failed_requests": 0,
+  "accuracy_overall": 0.9625,
+  "accuracy_by_lang": {
+    "en": 0.9583,
+    "it": 0.9667
+  },
+  "accuracy_by_class": {
+    "large": 0.9625,
+    "medium": 0.925,
+    "small": 1.0
+  },
+  "confusion_matrix": {
+    "large": {
+      "large": 77,
+      "medium": 3,
+      "small": 0
+    },
+    "medium": {
+      "large": 3,
+      "medium": 74,
+      "small": 3
+    },
+    "small": {
+      "large": 0,
+      "medium": 0,
+      "small": 80
+    }
+  },
+  "target_accuracy": 0.95,
+  "recommended_threshold": 0.5,
+  "recommended_coverage": 1.0,
+  "latency_p50_ms": 9052,
+  "latency_p95_ms": 18572,
+  "thresholds": [
+    {
+      "threshold": 0.5,
+      "coverage": 1.0,
+      "accepted": 240,
+      "accuracy_accepted": 0.9625
+    },
+    {
+      "threshold": 0.55,
+      "coverage": 1.0,
+      "accepted": 240,
+      "accuracy_accepted": 0.9625
+    },
+    {
+      "threshold": 0.6,
+      "coverage": 1.0,
+      "accepted": 240,
+      "accuracy_accepted": 0.9625
+    },
+    {
+      "threshold": 0.65,
+      "coverage": 1.0,
+      "accepted": 240,
+      "accuracy_accepted": 0.9625
+    },
+    {
+      "threshold": 0.7,
+      "coverage": 1.0,
+      "accepted": 240,
+      "accuracy_accepted": 0.9625
+    },
+    {
+      "threshold": 0.75,
+      "coverage": 1.0,
+      "accepted": 240,
+      "accuracy_accepted": 0.9625
+    },
+    {
+      "threshold": 0.8,
+      "coverage": 1.0,
+      "accepted": 240,
+      "accuracy_accepted": 0.9625
+    },
+    {
+      "threshold": 0.85,
+      "coverage": 1.0,
+      "accepted": 240,
+      "accuracy_accepted": 0.9625
+    },
+    {
+      "threshold": 0.9,
+      "coverage": 1.0,
+      "accepted": 240,
+      "accuracy_accepted": 0.9625
+    },
+    {
+      "threshold": 0.95,
+      "coverage": 1.0,
+      "accepted": 240,
+      "accuracy_accepted": 0.9625
+    }
+  ],
+  "confident_errors": [
+    {
+      "id": "it-medium-17",
+      "expected": "medium",
+      "predicted": "small",
+      "probability": 1.0,
+      "state": "Converti in PowerShell questo script bash di 15 righe che copia file e crea una cartella."
+    },
+    {
+      "id": "it-medium-20",
+      "expected": "medium",
+      "predicted": "large",
+      "probability": 1.0,
+      "state": "Prepara l'agenda di un'ora per la riunione di kickoff del progetto."
+    },
+    {
+      "id": "it-medium-30",
+      "expected": "medium",
+      "predicted": "large",
+      "probability": 1.0,
+      "state": "Fammi un piano di allenamento settimanale per iniziare a correre."
+    },
+    {
+      "id": "it-large-07",
+      "expected": "large",
+      "predicted": "medium",
+      "probability": 1.0,
+      "state": "Dimostra perché l'algoritmo di Dijkstra non funziona con pesi negativi e proponi un'alternativa indicandone la complessità."
+    },
+    {
+      "id": "en-medium-12",
+      "expected": "medium",
+      "predicted": "small",
+      "probability": 1.0,
+      "state": "Convert this short Python script that reads a JSON file into Node.js."
+    },
+    {
+      "id": "en-medium-30",
+      "expected": "medium",
+      "predicted": "large",
+      "probability": 1.0,
+      "state": "Make a 4-week beginner plan to learn basic Spanish."
+    },
+    {
+      "id": "en-medium-39",
+      "expected": "medium",
+      "predicted": "small",
+      "probability": 1.0,
+      "state": "Explain what a p-value means with a simple example."
+    },
+    {
+      "id": "en-large-07",
+      "expected": "large",
+      "predicted": "medium",
+      "probability": 1.0,
+      "state": "Prove that the halting problem is undecidable and explain what it implies for static analysis tools."
+    },
+    {
+      "id": "en-large-26",
+      "expected": "large",
+      "predicted": "medium",
+      "probability": 1.0,
+      "state": "Explain how Paxos works and walk through what happens when two proposers compete during a network partition."
+    }
+  ]
+}

@@ -1,11 +1,12 @@
 # Model routing evaluation
 
-Generated 2026-09-23 21:14. Dataset: `model_routing.jsonl`.
+Generated 2026-09-24 06:30. Dataset: `model_routing.jsonl`.
 
 | Run | Samples | Failed | Accuracy | Acc. en | Acc. it | Acc. large | Acc. medium | Acc. small | Rec. threshold | Coverage at rec. | p50 ms |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | laya-en | 240 | 0 | 59.6% | 70.0% | 49.2% | 43.8% | 90.0% | 45.0% | 0.55 | 12.1% | 970.648 |
 | laya-multilingual | 240 | 0 | 34.6% | 37.5% | 31.7% | 20.0% | 10.0% | 73.8% | - | - | 289.332 |
+| llm-baseline | 240 | 0 | 96.2% | 95.8% | 96.7% | 96.2% | 92.5% | 100.0% | 0.5 | 100.0% | 9052 |
 | semif-v1 | 240 | 0 | 37.5% | 41.7% | 33.3% | 96.2% | 1.2% | 15.0% | 0.65 | 7.1% | 1423.964 |
 | semif-v2 | 240 | 0 | 51.7% | 56.7% | 46.7% | 45.0% | 96.2% | 13.8% | - | - | 1427.025 |
 
@@ -47,6 +48,28 @@ Confident errors (p >= 0.8): 11
 - `it-large-15` expected **large**, got **small** (p=0.85): Spiega la differenza tra consistenza forte ed eventuale e decidi quale serve a ciascuno dei nostri 6 microservizi, motivando.
 - `en-medium-02` expected **medium**, got **small** (p=0.84): Summarize this one-page memo about the new travel policy into five bullet points.
 - `en-medium-16` expected **medium**, got **small** (p=0.84): Give me 8 icebreaker questions for a team workshop.
+
+## llm-baseline
+
+Confusion matrix (rows = expected, columns = predicted):
+
+| expected \ predicted | large | medium | small |
+|---|---|---|---|
+| large | 77 | 3 | 0 |
+| medium | 3 | 74 | 3 |
+| small | 0 | 0 | 80 |
+
+Confident errors (p >= 0.8): 9
+
+- `it-medium-17` expected **medium**, got **small** (p=1.00): Converti in PowerShell questo script bash di 15 righe che copia file e crea una cartella.
+- `it-medium-20` expected **medium**, got **large** (p=1.00): Prepara l'agenda di un'ora per la riunione di kickoff del progetto.
+- `it-medium-30` expected **medium**, got **large** (p=1.00): Fammi un piano di allenamento settimanale per iniziare a correre.
+- `it-large-07` expected **large**, got **medium** (p=1.00): Dimostra perché l'algoritmo di Dijkstra non funziona con pesi negativi e proponi un'alternativa indicandone la complessità.
+- `en-medium-12` expected **medium**, got **small** (p=1.00): Convert this short Python script that reads a JSON file into Node.js.
+- `en-medium-30` expected **medium**, got **large** (p=1.00): Make a 4-week beginner plan to learn basic Spanish.
+- `en-medium-39` expected **medium**, got **small** (p=1.00): Explain what a p-value means with a simple example.
+- `en-large-07` expected **large**, got **medium** (p=1.00): Prove that the halting problem is undecidable and explain what it implies for static analysis tools.
+- `en-large-26` expected **large**, got **medium** (p=1.00): Explain how Paxos works and walk through what happens when two proposers compete during a network partition.
 
 ## semif-v1
 

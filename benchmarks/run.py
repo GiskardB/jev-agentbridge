@@ -1,4 +1,4 @@
-"""Benchmark utility for JEV-CPU-AgentBridge.
+"""Benchmark utility for JEV-AgentBridge.
 
 Loads the configured decision engine (JEV_ENGINE, or --engine) and measures cold start
 plus warm direct/shared decision latency on a fixed set of representative decisions, so
@@ -10,7 +10,7 @@ Usage:
     python -m benchmarks.run --engine rizzoflow
 
 Latency only; for accuracy and threshold choice see `jev-eval`
-(jev_cpu_agentbridge/evaluation.py).
+(jev_agentbridge/evaluation.py).
 """
 
 from __future__ import annotations
@@ -20,10 +20,10 @@ import dataclasses
 import json
 import time
 
-from jev_cpu_agentbridge.adapters.registry import available_engines, create_adapter
-from jev_cpu_agentbridge.core.models import Decision, Option
-from jev_cpu_agentbridge.core.service import DecisionService
-from jev_cpu_agentbridge.runtime.settings import Settings
+from jev_agentbridge.adapters.registry import available_engines, create_adapter
+from jev_agentbridge.core.models import Decision, Option
+from jev_agentbridge.core.service import DecisionService
+from jev_agentbridge.runtime.settings import Settings
 
 SCENARIOS = [
     (
@@ -75,7 +75,7 @@ def main() -> None:
     if args.engine:
         settings = dataclasses.replace(settings, engine=args.engine)
 
-    print(f"Benchmarking JEV-CPU-AgentBridge — engine={settings.engine}")
+    print(f"Benchmarking JEV-AgentBridge — engine={settings.engine}")
 
     cold_started = time.perf_counter()
     engine = DecisionService(

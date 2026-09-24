@@ -1,4 +1,4 @@
-"""JEV-CPU-AgentBridge entry point."""
+"""JEV-AgentBridge entry point."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from .core.ports import DecisionAdapter
 from .core.service import DecisionService
 from .runtime.settings import Settings
 
-logger = logging.getLogger("jev_cpu_agentbridge")
+logger = logging.getLogger("jev_agentbridge")
 
 
 def create_app(
@@ -42,7 +42,7 @@ def create_app(
             )
         yield
 
-    app = FastAPI(title="JEV-CPU-AgentBridge", version=__version__, lifespan=lifespan)
+    app = FastAPI(title="JEV-AgentBridge", version=__version__, lifespan=lifespan)
     app.state.service = (
         DecisionService(adapter, default_threshold=settings.min_selected_probability)
         if adapter is not None

@@ -65,7 +65,7 @@ class FakeModel:
 
 
 def make_adapter(model: object | None = None, max_input_tokens: int = 10000):
-    from jev_cpu_agentbridge.adapters.semif.adapter import SemIfAdapter
+    from jev_agentbridge.adapters.semif.adapter import SemIfAdapter
 
     return SemIfAdapter(
         model=model or FakeModel(),
@@ -87,7 +87,7 @@ class FakeAdapter:
         self.error: Exception | None = None
 
     def info(self):
-        from jev_cpu_agentbridge.core.ports import EngineInfo
+        from jev_agentbridge.core.ports import EngineInfo
 
         return EngineInfo(name="fake", model="fake-model", thread_safe=self.thread_safe)
 
@@ -95,7 +95,7 @@ class FakeAdapter:
         return self.ready
 
     def score(self, *, state, decision):
-        from jev_cpu_agentbridge.core.models import Scores
+        from jev_agentbridge.core.models import Scores
 
         if self.error is not None:
             raise self.error

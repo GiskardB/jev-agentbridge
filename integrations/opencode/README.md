@@ -1,6 +1,6 @@
-# OpenCode Integration for JEV-CPU-AgentBridge
+# OpenCode Integration for JEV-AgentBridge
 
-This integration provides a callable tool `jev_decide` that maps the OpenCode agent's decision request to `POST /v1/decide` on the JEV-CPU-AgentBridge service.
+This integration provides a callable tool `jev_decide` that maps the OpenCode agent's decision request to `POST /v1/decide` on the JEV-AgentBridge service.
 
 ## Installation
 
@@ -33,7 +33,7 @@ opencode plugin opencode-jev-agentbridge
 
    ```json
    {
-     "plugin": ["./integrations/opencode/plugin/jev-cpu-agentbridge.mjs"]
+     "plugin": ["./integrations/opencode/plugin/jev-agentbridge.mjs"]
    }
    ```
 
@@ -46,18 +46,18 @@ cd integrations/opencode && npm test
 ### Point it at your running Bridge instance
 
 ```bash
-export JEV_CPU_AGENTBRIDGE_URL=http://localhost:8000
+export JEV_AGENTBRIDGE_URL=http://localhost:8000
 ```
 
 ### The skill
 
 The tool alone only gets called when the model explicitly decides to reach for it. The skill in
-`skills/jev-cpu-agentbridge/` teaches the agent *when* that is — OpenCode surfaces a skill's
+`skills/jev-agentbridge/` teaches the agent *when* that is — OpenCode surfaces a skill's
 description automatically on every step, but only if it lives in one of OpenCode's skill paths
 (there's no plugin API to register a skill in code, only filesystem discovery).
 
 **This now happens automatically**: the first time the plugin loads, it copies its bundled skill
-into `.opencode/skills/jev-cpu-agentbridge/` in your project, if it isn't there already. Nothing
+into `.opencode/skills/jev-agentbridge/` in your project, if it isn't there already. Nothing
 to run by hand. If it doesn't show up (e.g. OpenCode had already loaded its skill list for the
 current session before the plugin ran), restart the session once.
 
@@ -65,7 +65,7 @@ To make it available globally instead of per-project, copy it into OpenCode's gl
 once:
 
 ```bash
-mkdir -p ~/.config/opencode/skills && cp -r <path-to-this-package>/skills/jev-cpu-agentbridge ~/.config/opencode/skills/
+mkdir -p ~/.config/opencode/skills && cp -r <path-to-this-package>/skills/jev-agentbridge ~/.config/opencode/skills/
 ```
 
 (`<path-to-this-package>` is wherever OpenCode cached the npm install, typically
@@ -113,6 +113,6 @@ were found and fixed doing that verification — see [CHANGELOG.md](../../CHANGE
 
 ## SKILL.md
 
-See [`skills/jev-cpu-agentbridge/SKILL.md`](skills/jev-cpu-agentbridge/SKILL.md) for when to use
+See [`skills/jev-agentbridge/SKILL.md`](skills/jev-agentbridge/SKILL.md) for when to use
 JEV and when not to — install it per the "Enable the skill" step above so OpenCode actually loads
 it.

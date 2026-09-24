@@ -11,9 +11,9 @@
 import assert from "node:assert/strict";
 import { existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import plugin from "./plugin/jev-cpu-agentbridge.mjs";
+import plugin from "./plugin/jev-agentbridge.mjs";
 
-const installedSkillDir = join(process.cwd(), ".opencode", "skills", "jev-cpu-agentbridge");
+const installedSkillDir = join(process.cwd(), ".opencode", "skills", "jev-agentbridge");
 // This test's cwd is this package's own directory, so it's always safe to
 // remove whatever the plugin installs here — not a real project's .opencode/.
 rmSync(join(process.cwd(), ".opencode"), { recursive: true, force: true });

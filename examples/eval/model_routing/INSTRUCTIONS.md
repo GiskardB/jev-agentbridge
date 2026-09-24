@@ -1,6 +1,6 @@
 # Model routing evaluation: instructions for the agent running it
 
-You are going to measure how well JEV-CPU-AgentBridge picks **which LLM tier (small / medium /
+You are going to measure how well JEV-AgentBridge picks **which LLM tier (small / medium /
 large) should answer a user request**. You will run the published Docker images against a
 labelled dataset and produce a comparison report. Follow the steps in order. Do not skip the
 smoke test.
@@ -99,6 +99,36 @@ docker run -d --name jev-eval -p 8000:8000 -v jev-hf-cache:/root/.cache/huggingf
 python run_eval.py run --url http://localhost:8000 --label semif-v2
 docker rm -f jev-eval
 ```
+
+## Step 4b (optional): Kev
+
+[Kev](https://github.com/jaredpalmer/kev) runs as its own server (Python 3.12–3.13, needs
+[uv](https://docs.astral.sh/uv/)); the bridge talks to it over the System One protocol. Kev
+listens on `127.0.0.1` only, so run the bridge from source on the same machine, from the
+repository root, instead of Docker. Use `kev-0.8b` without a GPU; on a GPU or Apple Silicon use
+`kev-4b` and label the run `kev-4b`.
+
+```
+git clone https://github.com/jaredpalmer/kev
+cd kev
+uv sync --extra serve
+uv run --extra serve python -m kev.serve --run jaredpalmer/kev-0.8b --port 8009
+```
+
+In a second terminal, from the root of this repository (PowerShell: `$env:JEV_ENGINE="kev"`
+instead of the `JEV_ENGINE=kev` prefix):
+
+```
+JEV_ENGINE=kev uv run python -m uvicorn jev_agentbridge.main:app --port 8000
+```
+
+In a third terminal, from `examples/eval/model_routing/`:
+
+```
+python run_eval.py run --url http://localhost:8000 --label kev-0.8b --timeout 120
+```
+
+Stop both servers with Ctrl+C when done.
 
 ## Step 5 (optional, recommended): LLM baseline
 

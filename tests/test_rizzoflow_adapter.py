@@ -7,12 +7,12 @@ import urllib.error
 
 import pytest
 
-from jev_cpu_agentbridge.adapters.rizzoflow.adapter import RizzoFlowAdapter
-from jev_cpu_agentbridge.core.errors import EngineUnavailableError
-from jev_cpu_agentbridge.core.models import Decision, Option
-from jev_cpu_agentbridge.core.service import DecisionService
+from jev_agentbridge.adapters.rizzoflow.adapter import RizzoFlowAdapter
+from jev_agentbridge.core.errors import EngineUnavailableError
+from jev_agentbridge.core.models import Decision, Option
+from jev_agentbridge.core.service import DecisionService
 
-URLOPEN = "jev_cpu_agentbridge.adapters.rizzoflow.adapter.urllib.request.urlopen"
+URLOPEN = "jev_agentbridge.adapters.rizzoflow.adapter.urllib.request.urlopen"
 RETRY_ABORT = (Option("retry", "Retry"), Option("abort", "Abort"))
 
 

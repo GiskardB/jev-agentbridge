@@ -1,11 +1,11 @@
-// JEV-CPU-AgentBridge — OpenCode plugin.
+// JEV-AgentBridge — OpenCode plugin.
 //
 // Provides a single callable tool:
 //   jev_decide
-// which calls POST /v1/decide on the JEV-CPU-AgentBridge service.
+// which calls POST /v1/decide on the JEV-AgentBridge service.
 //
 // OpenCode loads this as a server plugin. Add to your opencode.json:
-//   { "plugin": ["./integrations/opencode/plugin/jev-cpu-agentbridge.mjs"] }
+//   { "plugin": ["./integrations/opencode/plugin/jev-agentbridge.mjs"] }
 //
 // Requires @opencode-ai/plugin to be resolvable from this file (npm install
 // in integrations/opencode/ — see package.json there).
@@ -21,23 +21,23 @@ import { fileURLToPath } from "node:url";
 // the project's .opencode/skills/, best-effort, without clobbering an
 // existing copy (e.g. one the user customized).
 // ponytail: copy-once, no version check — a plugin update won't refresh an
-// already-installed skill; delete .opencode/skills/jev-cpu-agentbridge/ to
+// already-installed skill; delete .opencode/skills/jev-agentbridge/ to
 // pick up a newer bundled version.
 function installSkill(log) {
   try {
     const here = dirname(fileURLToPath(import.meta.url));
-    const src = join(here, "..", "skills", "jev-cpu-agentbridge");
-    const dest = join(process.cwd(), ".opencode", "skills", "jev-cpu-agentbridge");
+    const src = join(here, "..", "skills", "jev-agentbridge");
+    const dest = join(process.cwd(), ".opencode", "skills", "jev-agentbridge");
     if (existsSync(src) && !existsSync(dest)) {
       mkdirSync(dirname(dest), { recursive: true });
       cpSync(src, dest, { recursive: true });
-      log("info", `jev-cpu-agentbridge: installed skill to ${dest}`);
+      log("info", `jev-agentbridge: installed skill to ${dest}`);
     }
   } catch (e) {
     log(
       "warn",
-      `jev-cpu-agentbridge: could not auto-install the skill (${e.message}); copy ` +
-        "skills/jev-cpu-agentbridge/ into .opencode/skills/ manually if needed.",
+      `jev-agentbridge: could not auto-install the skill (${e.message}); copy ` +
+        "skills/jev-agentbridge/ into .opencode/skills/ manually if needed.",
     );
   }
 }
@@ -45,20 +45,22 @@ function installSkill(log) {
 export default async ({ client } = {}) => {
   const log = (level, message) => {
     try {
-      client && client.app && client.app.log({ body: { service: "jev-cpu-agentbridge", level, message } });
+      client && client.app && client.app.log({ body: { service: "jev-agentbridge", level, message } });
     } catch (e) {}
   };
 
   installSkill(log);
 
-  const baseUrl = process.env.JEV_CPU_AGENTBRIDGE_URL || "http://localhost:8000";
+  // JEV_CPU_AGENTBRIDGE_URL is the pre-0.5 name, still honoured so existing setups keep working.
+  const baseUrl =
+    process.env.JEV_AGENTBRIDGE_URL || process.env.JEV_CPU_AGENTBRIDGE_URL || "http://localhost:8000";
 
   return {
     tool: {
       jev_decide: tool({
         description:
-          "Evaluate a small discrete decision (2-16 options) using the local, CPU-only " +
-          "JEV-CPU-AgentBridge instead of the main model. Use this for routine binary/few-way " +
+          "Evaluate a small discrete decision (2-16 options) using a local JEV decision model through " +
+          "JEV-AgentBridge instead of the main model. Use this for routine binary/few-way " +
           "judgment calls (retry vs abort, escalate vs log, accept vs reject), not open-ended reasoning.",
         args: {
           // z.record() crashes OpenCode 1.18.x's tool-schema serializer (ToolRegistry.state),

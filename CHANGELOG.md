@@ -1,7 +1,31 @@
 # Changelog
 
-## Unreleased
+## 0.5.0
 
+- **Rename: the project is now JEV-AgentBridge (`jev-agentbridge`).** The CPU restriction was
+  never an architectural one: remote engines run on whatever hardware their server has, and
+  in-process engines honour `JEV_MODEL_DEVICE`.
+  - Python package `jev_cpu_agentbridge` → `jev_agentbridge`; distribution `jev-agentbridge`.
+    **Breaking for library imports and for `uvicorn jev_cpu_agentbridge.main:app`.** Docker
+    users are unaffected: the image was already `ghcr.io/giskardb/jev-agentbridge`.
+  - SDKs: Python `jev-agentbridge-sdk` (import name `jev_agent_bridge` unchanged), TypeScript
+    `jev-agentbridge-sdk`.
+  - OpenCode plugin `0.2.0`: `plugin/jev-agentbridge.mjs`, skill `jev-agentbridge`, env var
+    `JEV_AGENTBRIDGE_URL`. The old `JEV_CPU_AGENTBRIDGE_URL` is still read as a fallback. A
+    previously auto-installed `.opencode/skills/jev-cpu-agentbridge/` is not removed; delete it
+    to avoid two copies of the skill. The npm package needs an `opencode-v0.2.0` tag to publish.
+- Add: **System One adapter** (`adapters/systemone/`), an HTTP client for TypeSafe's System One
+  protocol (`POST /v1/systemone`), which hosted Jev, Kev and RizzoFlow all serve. It is
+  registered twice: `JEV_ENGINE=systemone` (generic, `JEV_SYSTEMONE_*`) and `JEV_ENGINE=kev` (a
+  preset for [Kev](https://github.com/jaredpalmer/kev): `JEV_KEV_URL` default
+  `http://localhost:8009`, model `kev-latest`). Supports bearer auth, one request per batch,
+  and maps failures to `ENGINE_UNAVAILABLE` / `ENGINE_ERROR`. A `:kev` image is added to CI and
+  release. Verified end to end against a real `kev.serve` (Kev-0.8B on CPU).
+- Docs: new [docs/adding-an-engine.md](docs/adding-an-engine.md), a complete guide to adding a
+  JEV engine. It covers the no-code System One path, in-process vs remote, the exact adapter
+  contract, templates, registration, packaging, tests, measurements and a checklist.
+  `docs/architecture.md` and the README now describe the two engine kinds.
+- Docs: `model_routing/INSTRUCTIONS.md` gains an optional Kev step.
 - Docs: README rewritten around what the project is. It is a standardization bridge toward JEV
   decision models: one versioned contract, SDKs and error model for agents, with each JEV engine
   plugged in as an adapter and measured the same way. A new table lists what the bridge

@@ -30,10 +30,27 @@ def _rizzoflow() -> DecisionAdapter:
     return RizzoFlowAdapter.from_config(RizzoFlowConfig.from_env())
 
 
+def _kev() -> DecisionAdapter:
+    from .systemone.adapter import SystemOneAdapter, SystemOneConfig
+
+    config = SystemOneConfig.from_env(
+        "JEV_KEV", engine_name="kev", base_url="http://localhost:8009", model="kev-latest"
+    )
+    return SystemOneAdapter.from_config(config)
+
+
+def _systemone() -> DecisionAdapter:
+    from .systemone.adapter import SystemOneAdapter, SystemOneConfig
+
+    return SystemOneAdapter.from_config(SystemOneConfig.from_env("JEV_SYSTEMONE"))
+
+
 _ADAPTERS: dict[str, Callable[[], DecisionAdapter]] = {
     "semif": _semif,
     "laya": _laya,
     "rizzoflow": _rizzoflow,
+    "kev": _kev,
+    "systemone": _systemone,
 }
 
 

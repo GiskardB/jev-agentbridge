@@ -1,12 +1,12 @@
-# OpenCode + JEV-CPU-AgentBridge Example
+# OpenCode + JEV-AgentBridge Example
 
-This example demonstrates using OpenCode with OpenRouter for LLM capabilities and JEV-CPU-AgentBridge for local discrete decision-making.
+This example demonstrates using OpenCode with OpenRouter for LLM capabilities and JEV-AgentBridge for local discrete decision-making.
 
 ## Architecture
 
 ```
 ┌─────────────────┐    ┌────────────────────┐
-│   OpenCode CLI  │    │  JEV-CPU-AgentBridge│
+│   OpenCode CLI  │    │  JEV-AgentBridge│
 │ (with OpenRouter)│──►│ (local CPU inference)│
 └─────────────────┘    └────────────────────┘
        │                        │
@@ -17,7 +17,7 @@ This example demonstrates using OpenCode with OpenRouter for LLM capabilities an
 ## Running the Example
 
 ```bash
-# 1. Start JEV-CPU-AgentBridge
+# 1. Start JEV-AgentBridge
 docker compose -f examples/opencode-docker/docker-compose.yml up --build jev
 
 # 2. Run the integration test
@@ -29,7 +29,7 @@ docker compose up --build
 
 ## Comparison: JEV vs OpenRouter
 
-| Aspect | JEV-CPU-AgentBridge | OpenRouter |
+| Aspect | JEV-AgentBridge | OpenRouter |
 |---|---|---|
 | **Latency** | ~700ms (local CPU) | ~1400ms (remote inference) |
 | **Cost** | $0 (local CPU only) | ~45 tokens per request |

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Test script demonstrating JEV-CPU-AgentBridge with and without OpenRouter."""
+"""Test script demonstrating JEV-AgentBridge with and without OpenRouter."""
 
 import json
 import os
@@ -43,7 +43,7 @@ def test_hardware_capabilities() -> dict[str, Any]:
 
 
 def test_jev_local_decision() -> dict[str, Any]:
-    """Test JEV-CPU-AgentBridge for discrete decision (local CPU)."""
+    """Test JEV-AgentBridge for discrete decision (local CPU)."""
     start = time.time()
     client = AgentBridgeClient(get_env("JEV_URL", "http://localhost:8000"))
 
@@ -87,7 +87,7 @@ def test_oprouter_if_available() -> dict[str, Any]:
     headers = {
         "Authorization": f"Bearer {api_key}",
         "HTTP-Referer": "http://localhost:8000",
-        "X-Title": "JEV-CPU-AgentBridge Test",
+        "X-Title": "JEV-AgentBridge Test",
     }
     data = {
         "model": model,
@@ -126,7 +126,7 @@ def test_oprouter_if_available() -> dict[str, Any]:
 
 
 def compare_decision_making() -> dict[str, Any]:
-    """Compare JEV-CPU local decision vs OpenRouter (if available)."""
+    """Compare JEV local decision vs OpenRouter (if available)."""
     results = {
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
         "hardware": test_hardware_capabilities(),
@@ -158,7 +158,7 @@ def compare_decision_making() -> dict[str, Any]:
 def main() -> int:
     """Run all tests and print results."""
     print("=" * 60)
-    print("JEV-CPU-AgentBridge vs OpenRouter Comparison Test")
+    print("JEV-AgentBridge vs OpenRouter Comparison Test")
     print("=" * 60)
 
     results = compare_decision_making()

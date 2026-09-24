@@ -1,7 +1,7 @@
 """Laya adapter: non-autoregressive scoring on Laya encoder models.
 
 Laya scores all options for a question in one forward pass over an encoder model.
-See https://github.com/NandhaKishorM/laya. Requires `pip install jev-cpu-agentbridge[laya]`.
+See https://github.com/NandhaKishorM/laya. Requires `pip install jev-agentbridge[laya]`.
 """
 
 from __future__ import annotations
@@ -59,7 +59,7 @@ class LayaAdapter:
         except ImportError as error:
             raise RuntimeError(
                 "JEV_ENGINE=laya requires the 'laya' package. Install it with "
-                "`pip install jev-cpu-agentbridge[laya]`."
+                "`pip install jev-agentbridge[laya]`."
             ) from error
         agent = laya.load(config.model_name, device=config.device, subfolder=config.subfolder)
         return cls(agent=agent, model_name=config.model_name, subfolder=config.subfolder)

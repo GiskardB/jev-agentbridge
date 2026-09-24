@@ -1,13 +1,14 @@
 # Architecture
 
-JEV-CPU-AgentBridge is the **standardization bridge toward JEV decision models**: a standard
-decision REST API with **pluggable engine adapters** behind it (ports & adapters). Clients only ever see the v1 contract; which JEV-style engine
-scores the options is an implementation detail chosen at deploy time.
+JEV-AgentBridge is the **standardization bridge toward JEV decision models**: a standard
+decision REST API with **pluggable engine adapters** behind it (ports & adapters). Clients only
+ever see the v1 contract; which JEV-style engine scores the options is an implementation detail
+chosen at deploy time.
 
 ```mermaid
 flowchart TB
     Client["Orchestrator / agent / SDK"]
-    subgraph Bridge["JEV-CPU-AgentBridge"]
+    subgraph Bridge["JEV-AgentBridge"]
         API["<b>api/</b><br/>v1 REST contract · OpenAPI<br/>one error envelope"]
         Service["<b>core/service.py</b> DecisionService<br/>validation · argmax · threshold<br/>timing · metadata · locking"]
         Port["<b>core/ports.py</b><br/>DecisionAdapter protocol"]
@@ -17,6 +18,8 @@ flowchart TB
     Laya["<b>laya</b><br/>Laya encoders, in-process"]
     Rizzo["<b>rizzoflow</b><br/>HTTP client"]
     RizzoServer["RizzoFlow server<br/>rizzo serve"]
+    SysOne["<b>systemone</b> / <b>kev</b><br/>HTTP client, System One protocol"]
+    SysOneServer["Kev · hosted Jev · RizzoFlow<br/>any /v1/systemone server"]
 
     Client -- "POST /v1/decide" --> API
     API --> Service
@@ -25,8 +28,17 @@ flowchart TB
     Port --> SemIf
     Port --> Laya
     Port --> Rizzo
+    Port --> SysOne
     Rizzo -- "POST /v1/decisions" --> RizzoServer
+    SysOne -- "POST /v1/systemone" --> SysOneServer
 ```
+
+Two kinds of adapter sit behind the port. **In-process** adapters (`semif`, `laya`) load the
+model inside the bridge. **Remote** adapters (`systemone`, its `kev` preset, and `rizzoflow`)
+are HTTP clients to a model server that runs separately, on its own hardware and with its own
+dependencies. Remote adapters are written per *protocol*, not per model. TypeSafe's System One
+API (`/v1/systemone`) is spoken by hosted Jev, Kev and RizzoFlow, so one adapter covers all of
+them.
 
 ## Layers and responsibilities
 
@@ -51,7 +63,7 @@ sequenceDiagram
     participant C as Client
     participant A as api/routes.py
     participant S as DecisionService
-    participant P as Adapter (semif / laya / rizzoflow)
+    participant P as Adapter (laya / semif / kev / ...)
 
     C->>A: POST /v1/decide {state, question, options, min_selected_probability?}
     A->>A: schema validation (2-16 options, threshold 0..1) → 422 on error
@@ -66,7 +78,7 @@ sequenceDiagram
 
 `/v1/decide/batch` follows the same path through `score_batch()`. Adapters with a cheaper shared
 path (`native_batch=True`) use it: semif prefills the shared state once and reuses the KV cache.
-Laya and rizzoflow send one request with all the questions.
+Laya, rizzoflow and the System One adapters send one request with all the questions.
 
 ## The adapter port
 
@@ -91,16 +103,11 @@ thread pool, so a slow CPU decision no longer blocks `/health`, `/ready` or othe
 
 ## Adding a new engine
 
-1. Create `adapters/<name>/adapter.py` with a config dataclass (`from_env()` reading its own
-   `JEV_<NAME>_*` variables) and a class implementing `DecisionAdapter`.
-2. Add one factory to `_ADAPTERS` in `adapters/registry.py`.
-3. Add tests with a fake backend (see `tests/test_laya_adapter.py`,
-   `tests/test_rizzoflow_adapter.py`). `tests/test_registry.py` checks that every adapter
-   satisfies the port.
-4. If it needs extra Python dependencies, add an extra in `pyproject.toml` and a matrix entry
-   in `.github/workflows/release.yml` so it gets its own image tag.
-
-Nothing in `api/`, `core/`, the SDKs or client code changes.
+See **[adding-an-engine.md](adding-an-engine.md)**. It covers when no code is needed (a System
+One server), how to choose between in-process and remote, the exact adapter contract, templates,
+registration, packaging, tests and the measurements to run. In short, a new engine is one
+package in `adapters/<name>/` plus one line in `adapters/registry.py`. Nothing in `api/`,
+`core/`, the SDKs or client code changes.
 
 ## Engines and image tags
 
@@ -108,7 +115,9 @@ Nothing in `api/`, `core/`, the SDKs or client code changes.
 |---|---|---|---|
 | `:latest` / `:laya` | `laya` (default) | Laya encoder, non-autoregressive | `JEV_LAYA_MODEL_NAME`, `JEV_LAYA_SUBFOLDER` (`multilingual` for non-English), `JEV_MODEL_DEVICE` |
 | `:semif` | `semif` | Causal LM, next-token scoring of option letters A–P | `JEV_MODEL_NAME`, `JEV_MODEL_REVISION`, `JEV_MODEL_DEVICE`, `JEV_MAX_INPUT_TOKENS`, `JEV_SEMIF_PROMPT_VERSION` (`direct-options-v1` default, `direct-options-v2` recommended) |
-| `:rizzoflow` | `rizzoflow` | HTTP client to a separately-run RizzoFlow server | `JEV_RIZZOFLOW_URL`, `JEV_RIZZOFLOW_TIMEOUT_SECONDS` |
+| `:rizzoflow` | `rizzoflow` | HTTP client to a separately-run RizzoFlow server (native `/v1/decisions`) | `JEV_RIZZOFLOW_URL`, `JEV_RIZZOFLOW_TIMEOUT_SECONDS` |
+| `:kev` | `kev` | System One client preset for a [Kev](https://github.com/jaredpalmer/kev) server (`python -m kev.serve`) | `JEV_KEV_URL` (default `http://localhost:8009`), `JEV_KEV_MODEL` (default `kev-latest`), `JEV_KEV_API_KEY`, `JEV_KEV_TIMEOUT_SECONDS` |
+| any, with `-e JEV_ENGINE=systemone` | `systemone` | Generic System One client: hosted Jev, Kev, RizzoFlow or any compatible server | `JEV_SYSTEMONE_URL`, `JEV_SYSTEMONE_MODEL`, `JEV_SYSTEMONE_API_KEY`, `JEV_SYSTEMONE_TIMEOUT_SECONDS` |
 
 Service-wide settings: `JEV_ENGINE`, `JEV_MIN_SELECTED_PROBABILITY` (default threshold, 0.60),
 `JEV_HOST`, `JEV_PORT`.

@@ -1,7 +1,7 @@
 # TypeScript SDK
 
 ```ts
-import { AgentBridgeClient } from '@jev-cpu/agentbridge'
+import { AgentBridgeClient } from 'jev-agentbridge-sdk'
 
 const client = new AgentBridgeClient('http://localhost:8000')
 

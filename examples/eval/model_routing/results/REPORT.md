@@ -1,9 +1,10 @@
 # Model routing evaluation
 
-Generated 2026-09-24 06:30. Dataset: `model_routing.jsonl`.
+Generated 2026-09-24 08:15. Dataset: `model_routing.jsonl`.
 
 | Run | Samples | Failed | Accuracy | Acc. en | Acc. it | Acc. large | Acc. medium | Acc. small | Rec. threshold | Coverage at rec. | p50 ms |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| kev-0.8b | 240 | 0 | 80.4% | 78.3% | 82.5% | 86.2% | 91.2% | 63.7% | 0.6 | 60.0% | 1851.762 |
 | laya-en | 240 | 0 | 59.6% | 70.0% | 49.2% | 43.8% | 90.0% | 45.0% | 0.55 | 12.1% | 970.648 |
 | laya-multilingual | 240 | 0 | 34.6% | 37.5% | 31.7% | 20.0% | 10.0% | 73.8% | - | - | 289.332 |
 | llm-baseline | 240 | 0 | 96.2% | 95.8% | 96.7% | 96.2% | 92.5% | 100.0% | 0.5 | 100.0% | 9052 |
@@ -11,6 +12,19 @@ Generated 2026-09-24 06:30. Dataset: `model_routing.jsonl`.
 | semif-v2 | 240 | 0 | 51.7% | 56.7% | 46.7% | 45.0% | 96.2% | 13.8% | - | - | 1427.025 |
 
 Recommended threshold = lowest threshold whose accuracy on accepted decisions is >= 95%; coverage = share of requests JEV would route on its own.
+
+## kev-0.8b
+
+Confusion matrix (rows = expected, columns = predicted):
+
+| expected \ predicted | large | medium | small |
+|---|---|---|---|
+| large | 69 | 11 | 0 |
+| medium | 4 | 73 | 3 |
+| small | 3 | 26 | 51 |
+
+Confident errors (p >= 0.8): 0
+
 
 ## laya-en
 

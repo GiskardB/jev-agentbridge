@@ -1,4 +1,4 @@
-/** Minimal TypeScript SDK for JEV-CPU-AgentBridge. */
+/** Minimal TypeScript SDK for JEV-AgentBridge. */
 
 export interface Option {
   id: string
@@ -81,7 +81,7 @@ export class AgentBridgeClient {
       throw new BridgeError(
         response.status,
         error?.code ?? 'HTTP_ERROR',
-        error?.message ?? `JEV-CPU-AgentBridge request failed: ${response.status}`,
+        error?.message ?? `JEV-AgentBridge request failed: ${response.status}`,
       )
     }
     return body as T

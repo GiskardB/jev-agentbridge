@@ -5,14 +5,14 @@ from __future__ import annotations
 import pytest
 import torch
 
-from jev_cpu_agentbridge.adapters.semif.prompt import build_decision_prompt, prompt_sha256
-from jev_cpu_agentbridge.adapters.semif.tokenizer_slots import (
+from jev_agentbridge.adapters.semif.prompt import build_decision_prompt, prompt_sha256
+from jev_agentbridge.adapters.semif.tokenizer_slots import (
     TokenSlotError,
     TokenSlotValidator,
 )
-from jev_cpu_agentbridge.core.errors import InputTooLargeError
-from jev_cpu_agentbridge.core.models import Decision, Option
-from jev_cpu_agentbridge.core.service import DecisionService
+from jev_agentbridge.core.errors import InputTooLargeError
+from jev_agentbridge.core.models import Decision, Option
+from jev_agentbridge.core.service import DecisionService
 from tests.conftest import FakeModel, FakeTokenizer, HighModel, make_adapter
 
 RETRY_ABORT = (Option(id="retry", description="Retry"), Option(id="abort", description="Abort"))
@@ -107,7 +107,7 @@ def test_prompt_contains_all_components() -> None:
 
 
 def test_prompt_versions() -> None:
-    from jev_cpu_agentbridge.adapters.semif.prompt import build_prefix, build_suffix
+    from jev_agentbridge.adapters.semif.prompt import build_prefix, build_suffix
 
     pairs = [("A", "A"), ("B", "B")]
     v1 = build_decision_prompt(state="s", question="q", options=pairs)
@@ -119,7 +119,7 @@ def test_prompt_versions() -> None:
 
 
 def test_adapter_reports_selected_prompt_version() -> None:
-    from jev_cpu_agentbridge.adapters.semif.adapter import SemIfAdapter
+    from jev_agentbridge.adapters.semif.adapter import SemIfAdapter
 
     adapter = SemIfAdapter(
         model=FakeModel(),

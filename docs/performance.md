@@ -19,7 +19,7 @@ the model is cached locally (see the measured numbers below).
 
 ```bash
 python -m benchmarks.run --engine semif
-python -m benchmarks.run --engine laya       # requires: pip install jev-cpu-agentbridge[laya]
+python -m benchmarks.run --engine laya       # requires: pip install jev-agentbridge[laya]
 python -m benchmarks.run --engine rizzoflow  # requires a running RizzoFlow server, see below
 ```
 
@@ -125,6 +125,7 @@ images. The laya numbers match an independent run to the decimal. Full output is
 | Configuration | Accuracy | EN | IT | Threshold for ≥ 95% | Coverage | p50 latency |
 |---|---|---|---|---|---|---|
 | LLM baseline: qwen3-32b via OpenRouter, temperature 0 | **96.2%** | 95.8% | 96.7% | n/a (no probability) | n/a | ~9.1 s (reasoning enabled) |
+| Kev-0.8B via `JEV_ENGINE=kev` (remote, CPU fp32; run with the same runner, not by the external agent) | **80.4%** | 78.3% | **82.5%** | 0.60 | **60.0%** | ~1.85 s |
 | laya, English model (default) | 59.6% | 70.0% | 49.2% | 0.55 | 12.1% | ~970 ms |
 | semif, `direct-options-v2` | 51.7% | 56.7% | 46.7% | never reached | 0% | ~1.4 s |
 | semif, `direct-options-v1` | 37.5% | 41.7% | 33.3% | 0.65 | 7.1% | ~1.4 s |
@@ -133,12 +134,19 @@ images. The laya numbers match an independent run to the decimal. Full output is
 
 What this shows:
 
+- **Kev-0.8B is the best JEV engine measured so far, by a wide margin.** At threshold 0.60 it
+  answers 144 of 240 requests alone (72 Italian, 72 English) and gets 137 right (95.1%). At 0.75
+  it answers 76 with no error. It made no confident errors (p ≥ 0.8). Its weak spot is `small`
+  requests (63.7%, mostly routed to `medium`), which is the safe direction for routing. On CPU it
+  takes about 1.85 s per decision; Kev's own figures on a GPU are tens of milliseconds. Kev-4B and
+  9B were not measured.
+
 - **The task is learnable and the labels hold up.** The LLM gets 96.2% in both languages. The
   gap is in today's JEV models, not in the dataset or in the bridge.
-- **laya (English model) is the best JEV option but is not a router yet.** It sends most small
+- **laya (English model), the default in-process engine, is not a router yet.** It sends most small
   and large requests to `medium`. Its probabilities never exceed about 0.73, so at the 0.55
   threshold it takes only 29 of 240 requests (28 correct), all of them English.
-- **Italian gets no coverage** from any JEV configuration at the 95% target.
+- **Italian gets no coverage** from any in-process configuration at the 95% target (Kev does cover it).
 - **The multilingual Laya model and semif v1 have strong, opposite biases** (toward `small` and
   toward `large`). Do not use them for this task.
 - **Latency does not compensate on its own.** At about 1 s per decision on the evaluator's

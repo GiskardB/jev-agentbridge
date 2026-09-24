@@ -25,7 +25,7 @@ and pass it per request as `min_selected_probability`.
 ### Node / TypeScript
 
 ```ts
-import { AgentBridgeClient } from '@jev-cpu/agentbridge'
+import { AgentBridgeClient } from 'jev-agentbridge-sdk'
 
 const jev = new AgentBridgeClient('http://localhost:8000', 2_000)
 const outcome = await jev.decideOrFallback(
@@ -82,8 +82,8 @@ The Bridge API is identical for every engine (see [architecture.md](architecture
 
 | Image tag | Runtime engine | What it is |
 |---|---|---|
-| `:latest` / `:laya` | `laya` (default) | Non-autoregressive encoder models, CPU only. Best measured accuracy and latency |
-| `:semif` | `semif` | Qwen3-0.6B causal LM, next-token scoring, CPU only. Use `JEV_SEMIF_PROMPT_VERSION=direct-options-v2` |
+| `:latest` / `:laya` | `laya` (default) | Non-autoregressive encoder models, in-process. Best measured accuracy and latency |
+| `:semif` | `semif` | Qwen3-0.6B causal LM, next-token scoring, in-process. Use `JEV_SEMIF_PROMPT_VERSION=direct-options-v2` |
 | `:rizzoflow` | `rizzoflow` | HTTP client to a separately-run RizzoFlow server — also usable as a general JEV integration point |
 
 The engine is baked into the image by the release pipeline, so `JEV_ENGINE` is not needed when
@@ -119,7 +119,7 @@ print(result["decision"]["id"])
 ## TypeScript SDK
 
 ```ts
-import { AgentBridgeClient } from '@jev-cpu/agentbridge'
+import { AgentBridgeClient } from 'jev-agentbridge-sdk'
 const client = new AgentBridgeClient('http://localhost:8000')
 const result = await client.decide({...})
 ```

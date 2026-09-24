@@ -1,15 +1,15 @@
 <p align="center">
-  <img src="docs/assets/banner.png" alt="JEV-CPU-AgentBridge" width="600">
+  <img src="docs/assets/banner.png" alt="JEV-AgentBridge" width="600">
 </p>
 
 <p align="center">
   <strong>One standard API for JEV decision models.</strong><br>
-  A bridge between your agents and the JEV family of local, CPU-only decision engines:
+  A bridge between your agents and the JEV family of local decision engines:
   one contract, pluggable engines, the same way to measure them all.
 </p>
 
 <p align="center">
-  <img alt="version" src="https://img.shields.io/badge/version-0.4.0-informational">
+  <img alt="version" src="https://img.shields.io/badge/version-0.5.0-informational">
   <img alt="api" src="https://img.shields.io/badge/API-v1-informational">
   <img alt="python" src="https://img.shields.io/badge/python-3.11%2B-blue">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-green">
@@ -22,13 +22,14 @@
 
 **JEV models** are small local models built to *choose* rather than *write*. Given some
 evidence, a question and 2–16 options, they score the options in a single forward pass and
-return a probability for each. They need no text generation, no GPU and no external API. The
-family is young and moving fast: [semif](#engines) (a causal LM scored on option letters),
-[Laya](https://github.com/NandhaKishorM/laya) (non-autoregressive encoders) and
-[RizzoFlow](https://github.com/Rizzo-AI-Academy/rizzo-flow) (llama.cpp GGUF models) each come
-with their own API, input format and definition of "confidence".
+return a probability for each. They need no text generation and can run locally, on CPU or GPU.
+The family is young and moving fast. [semif](#engines) is a causal LM scored on option letters,
+[Laya](https://github.com/NandhaKishorM/laya) uses non-autoregressive encoders,
+[Kev](https://github.com/jaredpalmer/kev) puts LoRA and a pointer head on Qwen3.5, and
+[RizzoFlow](https://github.com/Rizzo-AI-Academy/rizzo-flow) runs llama.cpp GGUF models. Each
+comes with its own API, input format and definition of "confidence".
 
-**JEV-CPU-AgentBridge is the standardization layer in front of them.** Your agents integrate
+**JEV-AgentBridge is the standardization layer in front of them.** Your agents integrate
 once, against one versioned REST contract (`/v1/decide`), SDKs and error model. Each JEV engine
 plugs in behind it as an adapter. When a better JEV model appears, you swap the engine (an image
 tag or one environment variable) and re-measure it with the bundled evaluation tools. Your code
@@ -41,7 +42,7 @@ flowchart LR
         SDK["SDKs<br/>Python · TypeScript"]
         Tools["Agent tools<br/>OpenCode · LangChain"]
     end
-    subgraph Bridge["JEV-CPU-AgentBridge"]
+    subgraph Bridge["JEV-AgentBridge"]
         API["Standard API v1<br/>/v1/decide · /v1/decide/batch"]
         Core["DecisionService<br/>validation · threshold<br/>metadata · errors"]
         Eval["jev-eval<br/>same measurement<br/>for every engine"]
@@ -78,15 +79,16 @@ removes them. These are real differences found while building the adapters:
 
 ## What it is not
 
-The bridge does not make a JEV model smarter. Decision quality is the engine's quality, and
-today's JEV models are still far from a general LLM on anything but simple choices. Measured on
+The bridge does not make a JEV model smarter. Decision quality is the engine's quality, and it
+varies a lot between engines. Measured on
 this repo's [model-routing evaluation](examples/eval/model_routing/) (240 labelled requests,
 choose the small / medium / large LLM tier):
 
 | Configuration | Accuracy | English | Italian | Requests routed alone at ≥ 95% accuracy |
 |---|---|---|---|---|
 | LLM baseline (qwen3-32b, for reference) | **96.2%** | 95.8% | 96.7% | n/a |
-| laya, English model (default engine) | 59.6% | 70.0% | 49.2% | 12.1% |
+| Kev-0.8B (remote, on CPU) | **80.4%** | 78.3% | **82.5%** | **60.0%** (both languages) |
+| laya, English model (default engine) | 59.6% | 70.0% | 49.2% | 12.1% (English only) |
 | semif, prompt v2 | 51.7% | 56.7% | 46.7% | 0% |
 | semif, prompt v1 | 37.5% | 41.7% | 33.3% | 7.1% |
 | laya, multilingual model | 34.6% | 37.5% | 31.7% | 0% |
@@ -95,22 +97,54 @@ On short, closed decisions (retry / rollback / escalate, ticket triage) the engi
 laya scored 83.3% on the 12-row English sample and 75% on the Italian one. Every figure,
 with its caveats, is in [docs/performance.md](docs/performance.md#accuracy-and-threshold).
 
-This is why the bridge exists as a separate, stable layer. Build the integration and the
-measurement now, use JEV only where `jev-eval` shows it is reliable, and let each new JEV model
-earn more traffic by passing the same tests.
+The same client code went from 12% to 60% of requests handled without the LLM by changing one
+environment variable (`JEV_ENGINE=laya` → `kev`), with no confident errors (p ≥ 0.8) in either
+case. That is the point of the bridge: build the integration and the measurement once, use JEV
+only where `jev-eval` shows it is reliable, and let each new JEV model earn more traffic by
+passing the same tests. Kev-4B and 9B, which need a GPU to be fast, were not measured here.
 
 ## Engines
 
-| Image tag | `JEV_ENGINE` | Engine | Notes |
-|---|---|---|---|
-| `:latest` / `:laya` | `laya` (default) | [Laya](https://github.com/NandhaKishorM/laya) non-autoregressive encoders, in-process | `JEV_LAYA_SUBFOLDER=multilingual` (measured) or `typed-decisions` (not yet measured) selects another Laya model |
-| `:semif` | `semif` | Qwen3-0.6B causal LM, next-token scoring of option letters, in-process | `JEV_SEMIF_PROMPT_VERSION=direct-options-v2` scores better than the default v1 |
-| `:rizzoflow` | `rizzoflow` | HTTP client to a separately run [RizzoFlow](https://github.com/Rizzo-AI-Academy/rizzo-flow) server (llama.cpp, Spark-X2.5 GGUF) | Set `JEV_RIZZOFLOW_URL`; works with any RizzoFlow-compatible server |
+Engines plug in two ways. **In-process** engines load the model inside the bridge. **Remote**
+engines are HTTP clients to a model server that runs separately, with its own dependencies and
+hardware. Remote adapters are written per protocol: TypeSafe's System One API
+(`/v1/systemone`) is spoken by hosted Jev, Kev and RizzoFlow, so one adapter covers them all.
+
+| Image tag | `JEV_ENGINE` | Kind | Engine | Notes |
+|---|---|---|---|---|
+| `:latest` / `:laya` | `laya` (default) | in-process | [Laya](https://github.com/NandhaKishorM/laya) non-autoregressive encoders | `JEV_LAYA_SUBFOLDER=multilingual` (measured) or `typed-decisions` (not yet measured) selects another Laya model |
+| `:semif` | `semif` | in-process | Qwen3-0.6B causal LM, next-token scoring of option letters | `JEV_SEMIF_PROMPT_VERSION=direct-options-v2` scores better than the default v1 |
+| `:kev` | `kev` | remote | [Kev](https://github.com/jaredpalmer/kev) 0.8B / 4B / 9B, served by `python -m kev.serve` | `JEV_KEV_URL` (default `http://localhost:8009`); CUDA, ROCm or Apple Silicon recommended |
+| any image + `-e JEV_ENGINE=systemone` | `systemone` | remote | Any System One server. Tested with Kev; hosted Jev and RizzoFlow's `/v1/systemone` should work but are not yet tested | `JEV_SYSTEMONE_URL`, `JEV_SYSTEMONE_MODEL`, `JEV_SYSTEMONE_API_KEY` |
+| `:rizzoflow` | `rizzoflow` | remote | [RizzoFlow](https://github.com/Rizzo-AI-Academy/rizzo-flow) through its native `/v1/decisions` (llama.cpp, Spark-X2.5 GGUF) | `JEV_RIZZOFLOW_URL` |
 
 The engine is baked into each image, so the tag alone selects it (`-e JEV_ENGINE=...`
-overrides it). Every engine runs on CPU. Latency depends heavily on hardware: measured p50 on
-the routing evaluation was about 1 s for laya and 1.4 s for semif on the evaluator's machine,
-and 0.35–0.5 s on a cloud CPU. Check yours with `python -m benchmarks.run --engine <name>`.
+overrides it).
+
+<details>
+<summary>Running Kev behind the bridge</summary>
+
+Kev needs Python 3.12–3.13 and its own environment. Its server listens on `127.0.0.1` only, so
+run the bridge on the same host from source (or with `--network host` on Linux):
+
+```bash
+git clone https://github.com/jaredpalmer/kev && cd kev
+uv sync --extra serve
+uv run --extra serve python -m kev.serve --run jaredpalmer/kev-4b --port 8009
+# in this repo, in another terminal
+JEV_ENGINE=kev uv run python -m uvicorn jev_agentbridge.main:app --port 8000
+```
+
+Use `jaredpalmer/kev-0.8b` on a machine without a GPU, and `kev-9b` when accuracy matters more
+than memory.
+</details>
+
+**Hardware.** The published images use CPU PyTorch, so in-process engines run on CPU there.
+From source, `JEV_MODEL_DEVICE=cuda` works with a CUDA build of PyTorch. Remote engines use
+whatever hardware their server has, which is how to put a JEV model on a GPU without changing
+the bridge. Measured p50 latency on the routing evaluation, all on CPU: laya 0.35–1 s, semif
+about 1.4 s, Kev-0.8B about 1.8 s. Kev on a GPU is tens of milliseconds, according to its README.
+Check your own hardware with `python -m benchmarks.run --engine <name>`.
 
 ## Quick start
 
@@ -185,7 +219,7 @@ print(outcome.decision_id, outcome.source)  # "jev" or "fallback"
 ```
 
 ```ts
-import { AgentBridgeClient } from "@jev-cpu/agentbridge";
+import { AgentBridgeClient } from "jev-agentbridge-sdk";
 
 const jev = new AgentBridgeClient("http://localhost:8000", 2_000);
 const outcome = await jev.decideOrFallback(
@@ -224,18 +258,21 @@ an LLM baseline.
 
 ## Adding a JEV engine
 
-A new engine is one adapter implementing the `DecisionAdapter` port, which only has to *score*.
-Validation, threshold, response shape, errors and batching are handled by the service.
+If the model is served over System One, no code is needed: set `JEV_ENGINE=systemone` and
+`JEV_SYSTEMONE_URL`. Otherwise a new engine is one adapter implementing the
+`DecisionAdapter` port, which only has to *score*. Validation, threshold, response shape,
+errors and batching are handled by the service.
 
-1. Create `src/jev_cpu_agentbridge/adapters/<name>/adapter.py`: a config dataclass reading its
-   own `JEV_<NAME>_*` variables, plus a class with `info()`, `is_ready()`, `score()` and
+1. Choose **in-process** (compatible dependencies, runs on the bridge's hardware) or **remote**
+   (own runtime, GPU, different Python or torch).
+2. Create `src/jev_agentbridge/adapters/<name>/adapter.py`: a config dataclass reading its own
+   `JEV_<NAME>_*` variables, plus a class with `info()`, `is_ready()`, `score()` and
    `score_batch()` that returns one probability per option id.
-2. Register it with one line in `adapters/registry.py`.
-3. Add tests with a fake backend (see `tests/test_laya_adapter.py`).
-4. Run `jev-eval` and the evaluation suites against it.
+3. Register it with one line in `adapters/registry.py`.
+4. Add tests with a fake backend, then measure it with `jev-eval` and the evaluation suites.
 
-Nothing in the API, the SDKs or client code changes. Details:
-[docs/architecture.md](docs/architecture.md#adding-a-new-engine).
+Nothing in the API, the SDKs or client code changes. The complete guide, with the contract,
+templates and a checklist, is **[docs/adding-an-engine.md](docs/adding-an-engine.md)**.
 
 ## Integrations
 
@@ -250,7 +287,7 @@ Nothing in the API, the SDKs or client code changes. Details:
 <summary><strong>OpenCode</strong></summary>
 
 1. Register the plugin in `opencode.json`: `{ "plugin": ["opencode-jev-agentbridge"] }`
-2. Point it at your bridge: `JEV_CPU_AGENTBRIDGE_URL=http://localhost:8000`
+2. Point it at your bridge: `JEV_AGENTBRIDGE_URL=http://localhost:8000`
 3. On first load the plugin installs its skill into `.opencode/skills/`, which tells the agent
    when to use the `jev_decide` tool.
 
@@ -313,7 +350,8 @@ calls it, forward the input to the bridge and return the JSON as the tool result
 
 ## Documentation
 
-- [Architecture](docs/architecture.md): layers, the adapter port, adding an engine
+- [Architecture](docs/architecture.md): layers, the adapter port, engine kinds
+- [Adding an engine](docs/adding-an-engine.md): contract, templates, tests and measurements for a new JEV engine
 - [API reference](docs/api.md): the v1 contract and error codes
 - [Integration guide](docs/integration.md): the gate pattern in Node, Python and Java
 - [Performance and accuracy](docs/performance.md): latency benchmarks and every accuracy measurement

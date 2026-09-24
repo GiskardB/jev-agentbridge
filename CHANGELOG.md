@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.5.1
+
+- Add: **`docker-compose.kev.yml`** runs the Kev engine with one command: a Kev model server
+  container plus the bridge with `JEV_ENGINE=kev`, wired over the compose network. The bridge
+  waits for Kev to be healthy. New image `docker/kev-server/` (Python 3.12, CPU torch by default,
+  Kev pinned to commit `62c9183`) with a small wrapper that makes `kev.serve` listen on
+  `0.0.0.0` instead of its hard-coded `127.0.0.1`. It is built in CI and published by the
+  release as `:kev-server` / `:X.Y.Z-kev-server`. The GPU build is documented in the Dockerfile.
+- Change: **Laya uses its multilingual model by default** (`JEV_LAYA_SUBFOLDER` defaults to
+  `multilingual`, also set in the Dockerfile). `JEV_LAYA_SUBFOLDER=english` restores the
+  English model. `/v1/info` reports the model as `revision`. On an Italian skill-routing request
+  the multilingual model gave the right skill p=0.52 instead of 0.30. On the 240-row
+  model-routing suite it was lower than the English model (34.6% vs 59.6%, and 31.7% vs 49.2%
+  on Italian). Measure your own decisions before relying on either.
+
 ## 0.5.0
 
 - **Rename: the project is now JEV-AgentBridge (`jev-agentbridge`).** The CPU restriction was

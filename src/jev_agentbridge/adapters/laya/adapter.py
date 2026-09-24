@@ -13,18 +13,23 @@ from typing import Any, Sequence
 from ...core.models import Decision, Scores, State
 from ...core.ports import EngineInfo
 
+# Values of JEV_LAYA_SUBFOLDER that select Laya's English model (the repository root).
+_ENGLISH = {"", "english", "en", "root", "none"}
+
 
 @dataclass(frozen=True)
 class LayaConfig:
     model_name: str = "convaiinnovations/laya"
-    subfolder: str | None = None
+    # Multilingual by default: the English model is near-uniform on non-English text.
+    subfolder: str | None = "multilingual"
     device: str = "cpu"
 
     @classmethod
     def from_env(cls) -> "LayaConfig":
+        subfolder = os.getenv("JEV_LAYA_SUBFOLDER", cls.subfolder or "").strip()
         return cls(
             model_name=os.getenv("JEV_LAYA_MODEL_NAME", cls.model_name),
-            subfolder=os.getenv("JEV_LAYA_SUBFOLDER") or None,
+            subfolder=None if subfolder.lower() in _ENGLISH else subfolder,
             device=os.getenv("JEV_MODEL_DEVICE", cls.device),
         )
 
@@ -68,7 +73,7 @@ class LayaAdapter:
         return EngineInfo(
             name="laya",
             model=self._model_name,
-            revision=self._subfolder or "main",
+            revision=self._subfolder or "english",
             native_batch=True,
             thread_safe=False,
         )

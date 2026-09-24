@@ -37,3 +37,15 @@ def test_score_and_batch_in_one_forward_pass() -> None:
     assert all(r.accepted for r in results)
     assert len(agent.calls) == 1
     assert adapter.info().thread_safe is False
+
+
+def test_multilingual_is_the_default_model(monkeypatch) -> None:
+    from jev_agentbridge.adapters.laya.adapter import LayaConfig
+
+    monkeypatch.delenv("JEV_LAYA_SUBFOLDER", raising=False)
+    assert LayaConfig.from_env().subfolder == "multilingual"
+    for english in ("english", "EN", ""):
+        monkeypatch.setenv("JEV_LAYA_SUBFOLDER", english)
+        assert LayaConfig.from_env().subfolder is None
+    monkeypatch.setenv("JEV_LAYA_SUBFOLDER", "typed-decisions")
+    assert LayaConfig.from_env().subfolder == "typed-decisions"

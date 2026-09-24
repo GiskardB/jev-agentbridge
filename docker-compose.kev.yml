@@ -1,0 +1,50 @@
+# JEV-AgentBridge with the Kev engine, in one command:
+#
+#   docker compose -f docker-compose.kev.yml up
+#
+# REST on http://localhost:8000/v1/decide, MCP on http://localhost:8000/mcp.
+# The first start downloads Kev's weights (~2 GB for kev-0.8b) and can take several minutes;
+# the bridge starts once Kev is healthy. `--build` builds both images from this checkout.
+services:
+  kev:
+    image: ghcr.io/giskardb/jev-agentbridge:kev-server
+    build: ./docker/kev-server
+    environment:
+      # kev-0.8b runs on CPU. kev-4b / kev-9b need a GPU image (see docker/kev-server/Dockerfile)
+      # and the `deploy` block below. Append @<revision> to pin the weights.
+      - KEV_RUN=${KEV_RUN:-jaredpalmer/kev-0.8b}
+    volumes:
+      - kev-hf-cache:/root/.cache/huggingface
+    # Not published: only the bridge talks to Kev. Uncomment to call Kev directly.
+    # ports:
+    #   - "8009:8009"
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+  bridge:
+    image: ghcr.io/giskardb/jev-agentbridge:kev
+    build:
+      context: .
+      args:
+        ENGINE: kev
+    ports:
+      - "8000:8000"
+    environment:
+      - JEV_KEV_URL=http://kev:8009
+    depends_on:
+      kev:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/ready')"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  kev-hf-cache:

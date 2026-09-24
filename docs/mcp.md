@@ -23,7 +23,8 @@ flowchart LR
 ## Start the bridge
 
 ```bash
-docker run -p 8000:8000 ghcr.io/giskardb/jev-agentbridge:latest
+docker run -p 8000:8000 ghcr.io/giskardb/jev-agentbridge:latest   # laya
+docker compose -f docker-compose.kev.yml up                       # Kev, more accurate
 ```
 
 The MCP endpoint is `http://localhost:8000/mcp`. It uses the streamable HTTP transport (stateless,

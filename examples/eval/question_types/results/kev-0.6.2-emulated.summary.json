@@ -1,0 +1,60 @@
+{
+  "label": "kev-0.6.2-emulated",
+  "native_type": false,
+  "types": {
+    "noul": {
+      "n": 48,
+      "accuracy": 0.8542,
+      "by_lang": {
+        "en": 0.875,
+        "it": 0.8333
+      },
+      "coverage": {
+        "0.6": {
+          "coverage": 0.9375,
+          "accuracy": 0.9111
+        },
+        "0.7": {
+          "coverage": 0.8333,
+          "accuracy": 1.0
+        },
+        "0.8": {
+          "coverage": 0.7083,
+          "accuracy": 1.0
+        },
+        "0.9": {
+          "coverage": 0.5625,
+          "accuracy": 1.0
+        }
+      }
+    },
+    "score": {
+      "n": 32,
+      "accuracy": 0.7188,
+      "by_lang": {
+        "en": 0.6875,
+        "it": 0.75
+      },
+      "coverage": {
+        "0.6": {
+          "coverage": 0.4688,
+          "accuracy": 0.8
+        },
+        "0.7": {
+          "coverage": 0.3438,
+          "accuracy": 0.8182
+        },
+        "0.8": {
+          "coverage": 0.1875,
+          "accuracy": 1.0
+        },
+        "0.9": {
+          "coverage": 0.0625,
+          "accuracy": 1.0
+        }
+      },
+      "within_one_level": 1.0,
+      "score_mae": 0.505
+    }
+  }
+}

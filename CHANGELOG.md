@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+- Add: re-measured `examples/eval/model_routing` and `examples/eval/question_types` against the
+  published `:kev` 0.6.2 image (pinned `jaredpalmer/kev-0.8b@9a45d25e...`), labelled
+  `kev-0.6.2-*`. `question_types` matches the recorded `kev-0.8b` numbers exactly (85.4% noul,
+  71.9%/68.8% score). `model_routing` does not: 77.9% against the 80.4% on record for `kev-0.8b`.
+  Repeating the pinned run twice gave byte-identical results both times, so this isn't
+  measurement noise — the model is deterministic on these weights. The likely explanation:
+  `kev-0.8b.summary.json` was measured pre-pinning, from source, against whatever
+  `jaredpalmer/kev-0.8b` snapshot HF served at the time, which may not be `9a45d25e...`; the
+  `choice` request/response code path is otherwise unchanged since (checked the diff). Kept both
+  numbers on record rather than overwriting; treat `kev-0.6.2-pinned` as the reproducible one
+  going forward.
+
 ## 0.6.2
 
 - Fix: `__version__` was a second, hand-maintained copy of the version string in

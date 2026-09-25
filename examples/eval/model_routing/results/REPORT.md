@@ -1,9 +1,11 @@
 # Model routing evaluation
 
-Generated 2026-09-24 08:15. Dataset: `model_routing.jsonl`.
+Generated 2026-09-25 08:32. Dataset: `model_routing.jsonl`.
 
 | Run | Samples | Failed | Accuracy | Acc. en | Acc. it | Acc. large | Acc. medium | Acc. small | Rec. threshold | Coverage at rec. | p50 ms |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| kev-0.6.0-verify | 240 | 0 | 77.9% | 76.7% | 79.2% | 80.0% | 91.2% | 62.5% | 0.65 | 36.2% | 1622.463 |
+| kev-0.6.2-pinned | 240 | 0 | 77.9% | 76.7% | 79.2% | 80.0% | 91.2% | 62.5% | 0.65 | 36.2% | 1808.467 |
 | kev-0.8b | 240 | 0 | 80.4% | 78.3% | 82.5% | 86.2% | 91.2% | 63.7% | 0.6 | 60.0% | 1851.762 |
 | laya-en | 240 | 0 | 59.6% | 70.0% | 49.2% | 43.8% | 90.0% | 45.0% | 0.55 | 12.1% | 970.648 |
 | laya-multilingual | 240 | 0 | 34.6% | 37.5% | 31.7% | 20.0% | 10.0% | 73.8% | - | - | 289.332 |
@@ -12,6 +14,32 @@ Generated 2026-09-24 08:15. Dataset: `model_routing.jsonl`.
 | semif-v2 | 240 | 0 | 51.7% | 56.7% | 46.7% | 45.0% | 96.2% | 13.8% | - | - | 1427.025 |
 
 Recommended threshold = lowest threshold whose accuracy on accepted decisions is >= 95%; coverage = share of requests JEV would route on its own.
+
+## kev-0.6.0-verify
+
+Confusion matrix (rows = expected, columns = predicted):
+
+| expected \ predicted | large | medium | small |
+|---|---|---|---|
+| large | 64 | 16 | 0 |
+| medium | 5 | 73 | 2 |
+| small | 2 | 28 | 50 |
+
+Confident errors (p >= 0.8): 0
+
+
+## kev-0.6.2-pinned
+
+Confusion matrix (rows = expected, columns = predicted):
+
+| expected \ predicted | large | medium | small |
+|---|---|---|---|
+| large | 64 | 16 | 0 |
+| medium | 5 | 73 | 2 |
+| small | 2 | 28 | 50 |
+
+Confident errors (p >= 0.8): 0
+
 
 ## kev-0.8b
 

@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.6.1
 
 - Add: `JEV_KEV_MODEL_REVISION` / `JEV_SYSTEMONE_MODEL_REVISION` on the System One adapter,
   reported as `EngineInfo.revision` (and so in `/v1/info` and response `metadata`). System

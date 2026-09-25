@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.2
+
+- Fix: `__version__` was a second, hand-maintained copy of the version string in
+  `src/jev_agentbridge/__init__.py`, independent of `pyproject.toml` — missed in the 0.6.1 bump,
+  so the published 0.6.1 image's `/v1/info` still reported `version: "0.6.0"`. Now read once, at
+  import time, via `importlib.metadata.version("jev-agentbridge")`, so there's a single source
+  of truth and this can't drift again.
+
 ## 0.6.1
 
 - Add: `JEV_KEV_MODEL_REVISION` / `JEV_SYSTEMONE_MODEL_REVISION` on the System One adapter,

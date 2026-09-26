@@ -20,6 +20,8 @@ export interface DecisionRequest {
   /** noul only: what "yes" / "no" mean, when not obvious. */
   yes_description?: string
   no_description?: string
+  /** score only: levels on each side of the chosen one counted towards `accepted` (default 1). */
+  score_tolerance?: number
   /** Acceptance threshold for this call; defaults to the service's configured value. */
   min_selected_probability?: number
 }
@@ -37,6 +39,9 @@ export interface DecisionResult {
   score: number | null
   /** noul only: probability of yes. */
   noul: number | null
+  /** score only: probability of the chosen level ± score_tolerance; what `accepted` uses. */
+  score_window_probability: number | null
+  score_tolerance: number | null
   metadata: {
     engine: string
     model: string

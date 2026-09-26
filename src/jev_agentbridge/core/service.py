@@ -26,6 +26,7 @@ from .errors import (
     OptionCountError,
 )
 from .models import (
+    DEFAULT_SCORE_TOLERANCE,
     MAX_OPTIONS,
     MIN_OPTIONS,
     NO_ID,
@@ -48,8 +49,11 @@ class DecisionService:
         *,
         default_threshold: float,
         native_types: bool | Iterable[str] = True,
+        default_score_tolerance: int = DEFAULT_SCORE_TOLERANCE,
     ) -> None:
         _check_threshold(default_threshold)
+        _check_tolerance(default_score_tolerance)
+        self._default_score_tolerance = default_score_tolerance
         self._adapter = adapter
         self._default_threshold = default_threshold
         # True: every type the adapter supports goes native. False: everything is asked as a
@@ -66,6 +70,10 @@ class DecisionService:
     @property
     def default_threshold(self) -> float:
         return self._default_threshold
+
+    @property
+    def default_score_tolerance(self) -> int:
+        return self._default_score_tolerance
 
     def info(self) -> EngineInfo:
         return self._adapter.info()
@@ -162,6 +170,17 @@ class DecisionService:
             if decision.min_selected_probability is None
             else decision.min_selected_probability
         )
+        window: float | None = None
+        tolerance: int | None = None
+        if decision.type == "score":
+            tolerance = (
+                self._default_score_tolerance
+                if decision.score_tolerance is None
+                else decision.score_tolerance
+            )
+            window = _window_probability(
+                decision, probabilities, decision.options.index(selected), tolerance
+            )
         info = self._adapter.info()
         metadata: dict[str, Any] = {
             "engine": info.name,
@@ -179,13 +198,37 @@ class DecisionService:
             decision=selected,
             probabilities=probabilities,
             selected_probability=selected_probability,
-            accepted=selected_probability >= threshold,
+            accepted=(
+                window >= threshold if window is not None else selected_probability >= threshold
+            ),
             threshold=threshold,
             metadata=metadata,
             type=decision.type,
             score=_expected_level(decision, probabilities) if decision.type == "score" else None,
             noul=probabilities[YES_ID] if decision.type == "noul" else None,
+            score_window_probability=window,
+            score_tolerance=tolerance,
         )
+
+
+def _window_probability(
+    decision: Decision, probabilities: dict[str, float], selected_index: int, tolerance: int
+) -> float:
+    """Probability of the levels within `tolerance` steps of the selected one."""
+
+    return round(
+        sum(
+            probabilities[option.id]
+            for index, option in enumerate(decision.options)
+            if abs(index - selected_index) <= tolerance
+        ),
+        6,
+    )
+
+
+def _check_tolerance(value: int) -> None:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise InvalidDecisionError(f"score_tolerance must be an integer >= 0, got {value!r}")
 
 
 def _as_scored(decision: Decision, native: frozenset[str]) -> Decision:
@@ -232,6 +275,10 @@ def _validate(decision: Decision) -> None:
         raise DuplicateOptionIdError(f"Option ids must be unique; duplicated: {duplicates}")
     if decision.min_selected_probability is not None:
         _check_threshold(decision.min_selected_probability)
+    if decision.score_tolerance is not None:
+        if decision.type != "score":
+            raise InvalidDecisionError("score_tolerance applies to score decisions only")
+        _check_tolerance(decision.score_tolerance)
 
 
 def _option_probabilities(decision: Decision, scores: Scores) -> dict[str, float]:

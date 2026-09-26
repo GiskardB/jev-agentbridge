@@ -38,19 +38,22 @@ class AgentBridgeClient:
         type: str = "choice",
         yes_description: str | None = None,
         no_description: str | None = None,
+        score_tolerance: int | None = None,
         min_selected_probability: float | None = None,
     ) -> dict[str, Any]:
         """Evaluate a single decision of any type (``choice``, ``noul``, ``score``).
 
         Returns a dict with ``type``, ``decision``, ``probabilities``,
         ``selected_probability``, ``accepted``, ``threshold``, ``score`` (score only),
-        ``noul`` (noul only) and ``metadata``.
+        ``noul`` (noul only), ``score_window_probability`` / ``score_tolerance`` (score only)
+        and ``metadata``.
         """
         body: dict[str, Any] = {"type": type, "state": state, "question": question}
         optional = {
             "options": options,
             "yes_description": yes_description,
             "no_description": no_description,
+            "score_tolerance": score_tolerance,
             "min_selected_probability": min_selected_probability,
         }
         body.update({key: value for key, value in optional.items() if value is not None})
@@ -83,14 +86,20 @@ class AgentBridgeClient:
         state: str | dict[str, Any] | list[Any],
         question: str,
         levels: list[dict[str, str]],
+        score_tolerance: int | None = None,
         min_selected_probability: float | None = None,
     ) -> dict[str, Any]:
-        """A score decision over ``levels`` (lowest first): ``score`` is the expected level."""
+        """A score decision over ``levels`` (lowest first): ``score`` is the expected level.
+
+        ``accepted`` compares the probability of the chosen level ± ``score_tolerance`` levels
+        (server default 1) with the threshold; pass 0 to require the exact level.
+        """
         return self.decide(
             state=state,
             question=question,
             options=levels,
             type="score",
+            score_tolerance=score_tolerance,
             min_selected_probability=min_selected_probability,
         )
 

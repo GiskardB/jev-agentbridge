@@ -89,6 +89,7 @@ def create_router(get_service: ServiceProvider) -> APIRouter:
             default_min_selected_probability=current.default_threshold,
             supported_modes=["direct", "shared"],
             supported_types=list(QUESTION_TYPES),
+            default_score_tolerance=current.default_score_tolerance,
         )
 
     @router.post("/v1/decide", response_model=DecideResponse, responses=_ERRORS)
@@ -129,6 +130,7 @@ def _to_decision(item: DecisionIn, threshold: float | None) -> Decision:
         options=tuple(Option(id=o.id, description=o.description) for o in item.options or ()),
         min_selected_probability=threshold,
         type=item.type,
+        score_tolerance=item.score_tolerance,
     )
 
 
@@ -142,5 +144,7 @@ def _to_response(result: DecisionResult) -> DecideResponse:
         threshold=result.threshold,
         score=result.score,
         noul=result.noul,
+        score_window_probability=result.score_window_probability,
+        score_tolerance=result.score_tolerance,
         metadata=result.metadata,
     )

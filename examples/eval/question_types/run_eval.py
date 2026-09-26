@@ -68,6 +68,8 @@ def run(args: argparse.Namespace) -> None:
             "probability": result["selected_probability"],
             "noul": result.get("noul"),
             "score": result.get("score"),
+            "score_window_probability": result.get("score_window_probability"),
+            "accepted": result.get("accepted"),
             "native_type": result["metadata"].get("native_type"),
             "latency_ms": round((time.perf_counter() - started) * 1000, 1),
         }
@@ -128,6 +130,23 @@ def summarize(label: str, predictions: list[dict]) -> dict:
             stats["score_mae"] = round(
                 sum(abs(r["score"] - r["expected_level"]) for r in rows) / len(rows), 4
             )
+            # Bridges >= 0.7 accept a score on the chosen level ± tolerance (default 1).
+            windowed = [r for r in rows if r.get("score_window_probability") is not None]
+            if windowed:
+                stats["window_coverage"] = {}
+                for threshold in THRESHOLDS:
+                    kept = [r for r in windowed if r["score_window_probability"] >= threshold]
+                    stats["window_coverage"][str(threshold)] = {
+                        "coverage": round(len(kept) / len(windowed), 4),
+                        "accuracy": _accuracy(kept),
+                        "within_one_level": round(
+                            sum(abs(r["predicted_level"] - r["expected_level"]) <= 1 for r in kept)
+                            / len(kept),
+                            4,
+                        )
+                        if kept
+                        else None,
+                    }
         summary["types"][type_] = stats
     return summary
 

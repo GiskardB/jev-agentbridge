@@ -50,6 +50,7 @@ def create_app(
                 create_adapter(settings.engine),
                 default_threshold=settings.min_selected_probability,
                 native_types=settings.native_types,
+                default_score_tolerance=settings.score_tolerance,
             )
         async with AsyncExitStack() as stack:
             if mcp is not None:
@@ -62,6 +63,7 @@ def create_app(
             adapter,
             default_threshold=settings.min_selected_probability,
             native_types=settings.native_types,
+            default_score_tolerance=settings.score_tolerance,
         )
         if adapter is not None
         else None

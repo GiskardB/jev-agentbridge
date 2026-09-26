@@ -22,6 +22,10 @@ NO_ID = "no"
 DEFAULT_YES_DESCRIPTION = "Yes"
 DEFAULT_NO_DESCRIPTION = "No"
 
+# score decisions: `accepted` compares the probability of the chosen level plus the levels
+# within this many steps of it (the "window") with the threshold. 1 = the neighbours count.
+DEFAULT_SCORE_TOLERANCE = 1
+
 
 @dataclass(frozen=True)
 class Option:
@@ -44,6 +48,9 @@ class Decision:
     options: tuple[Option, ...]
     min_selected_probability: float | None = None
     type: QuestionType = "choice"
+    # score only: levels on each side of the chosen one counted towards `accepted`;
+    # None = the service default (DEFAULT_SCORE_TOLERANCE unless configured otherwise).
+    score_tolerance: int | None = None
 
     @classmethod
     def noul(
@@ -103,3 +110,6 @@ class DecisionResult:
     score: float | None = None
     # noul decisions: probability of "yes".
     noul: float | None = None
+    # score decisions: probability of the chosen level ± tolerance, the value `accepted` uses.
+    score_window_probability: float | None = None
+    score_tolerance: int | None = None

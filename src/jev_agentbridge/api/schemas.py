@@ -48,10 +48,18 @@ class DecisionIn(BaseModel):
     no_description: str | None = Field(
         default=None, description="noul only: what 'no' means, when not obvious."
     )
+    score_tolerance: int | None = Field(
+        default=None,
+        ge=0,
+        description="score only: levels on each side of the chosen one whose probability "
+        "counts towards `accepted`. Default JEV_SCORE_TOLERANCE (1); 0 = exact level only.",
+    )
     min_selected_probability: float | None = Threshold
 
     @model_validator(mode="after")
     def _fields_match_type(self) -> "DecisionIn":
+        if self.score_tolerance is not None and self.type != "score":
+            raise ValueError("score_tolerance applies to score decisions only")
         if self.type == "noul":
             if self.options is not None:
                 raise ValueError("a noul decision takes no options (its answers are yes/no)")
@@ -95,13 +103,23 @@ class DecideResponse(BaseModel):
         description="One probability per option id (noul: `yes` and `no`)."
     )
     selected_probability: float
-    accepted: bool = Field(description="selected_probability >= threshold")
+    accepted: bool = Field(
+        description="selected_probability >= threshold; for score, "
+        "score_window_probability >= threshold"
+    )
     threshold: float
     score: float | None = Field(
         default=None,
         description="score only: expected level, 0 (first level) to len(options) - 1.",
     )
     noul: float | None = Field(default=None, description="noul only: probability of yes.")
+    score_window_probability: float | None = Field(
+        default=None,
+        description="score only: probability of the chosen level ± score_tolerance levels.",
+    )
+    score_tolerance: int | None = Field(
+        default=None, description="score only: the tolerance applied."
+    )
     metadata: dict[str, Any] = Field(
         description="engine, model, model_revision, mode, latency_ms, native_type, "
         "input_tokens?, engine_details? (adapter-specific)."
@@ -132,6 +150,7 @@ class InfoResponse(BaseModel):
     default_min_selected_probability: float
     supported_modes: list[str]
     supported_types: list[str]
+    default_score_tolerance: int
 
 
 class HealthResponse(BaseModel):

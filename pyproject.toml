@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "jev-agentbridge"
-version = "0.6.2"
+version = "0.7.0"
 description = "JEV-AgentBridge — standard decision REST API over pluggable JEV decision engines"
 requires-python = ">=3.11"
 dependencies = [

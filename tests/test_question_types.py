@@ -253,3 +253,38 @@ def test_native_types_can_be_enabled_per_type(monkeypatch: pytest.MonkeyPatch) -
         assert Settings.from_env().native_types == expected
     monkeypatch.delenv("JEV_NATIVE_TYPES")
     assert Settings.from_env().native_types is False  # emulated by default
+
+
+def test_score_accepted_uses_the_window_around_the_chosen_level() -> None:
+    service = DecisionService(FakeAdapter(top=0.5), default_threshold=0.6)
+    levels = LEVELS + (Option("furious", "Furious"),)  # p = 0.5, 1/6, 1/6, 1/6
+    result = service.decide(state="s", decision=Decision("Mood?", levels, type="score"))
+    assert result.decision.id == "calm" and result.score_tolerance == 1
+    assert result.score_window_probability == pytest.approx(0.5 + 1 / 6, abs=1e-6)
+    assert result.accepted is True  # 0.667 >= 0.6, though the level alone is 0.5
+    exact = service.decide(
+        state="s", decision=Decision("Mood?", levels, type="score", score_tolerance=0)
+    )
+    assert exact.score_window_probability == 0.5 and exact.accepted is False
+    strict = DecisionService(FakeAdapter(top=0.5), default_threshold=0.6, default_score_tolerance=0)
+    assert strict.decide(state="s", decision=Decision("q", levels, type="score")).accepted is False
+    choice = service.decide(state="s", decision=Decision("q", levels))
+    assert choice.score_window_probability is None and choice.accepted is False
+
+
+def test_score_tolerance_validation() -> None:
+    service = DecisionService(FakeAdapter(), default_threshold=0.6)
+    with pytest.raises(InvalidDecisionError):
+        service.decide(state="s", decision=Decision("q", LEVELS, score_tolerance=1))  # choice
+    with pytest.raises(InvalidDecisionError):
+        service.decide(state="s", decision=Decision("q", LEVELS, type="score", score_tolerance=-1))
+    client = _client(FakeAdapter())
+    bad = client.post("/v1/decide", json={"state": "s", "question": "q", "options": OPTIONS_IN,
+                                          "score_tolerance": 1})
+    assert bad.status_code == 422
+    body = {"type": "score", "state": "s", "question": "q", "options": LEVELS_IN,
+            "score_tolerance": 0}
+    ok = client.post("/v1/decide", json=body).json()
+    assert ok["score_tolerance"] == 0
+    assert ok["score_window_probability"] == ok["selected_probability"]
+    assert client.get("/v1/info").json()["default_score_tolerance"] == 1

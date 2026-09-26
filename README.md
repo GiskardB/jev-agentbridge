@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img alt="version" src="https://img.shields.io/badge/version-0.6.2-informational">
+  <img alt="version" src="https://img.shields.io/badge/version-0.7.0-informational">
   <img alt="api" src="https://img.shields.io/badge/API-v1-informational">
   <img alt="python" src="https://img.shields.io/badge/python-3.11%2B-blue">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-green">
@@ -226,7 +226,12 @@ The type is for the caller: a yes/no answer comes back as `yes`/`no` with P(yes)
 keeps its order through `score`. The engine is asked the same way by default (as a choice over
 `yes`/`no` or the levels), because on our measurements the engines' native yes/no and scale
 paths were not better (Laya's native scale was clearly worse). `JEV_NATIVE_TYPES` turns them on.
-Details and numbers: [docs/api.md](docs/api.md#question-types).
+For a scale, `accepted` means the chosen level **or a neighbour** is likely enough
+(`score_tolerance`, default 1): small models are seldom off by more than one level but rarely
+sure of the exact one. On 280 measured questions, use Kev for yes/no gating (threshold 0.70:
+two thirds answered at 95.5% accuracy); Laya is not reliable there. Details and numbers:
+[docs/api.md](docs/api.md#question-types), thresholds in
+[docs/performance.md](docs/performance.md#recommended-thresholds-kev-08b).
 
 The response has the same shape whatever the engine. `accepted: false` means "not confident
 enough, decide yourself"; it does not mean "no". Other endpoints: `/v1/decide/batch` (several

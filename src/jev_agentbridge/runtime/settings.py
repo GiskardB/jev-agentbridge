@@ -19,6 +19,8 @@ class Settings:
     # Off by default: on the bundled question-types suite native was never better (Kev: equal;
     # Laya score: much worse). See examples/eval/question_types.
     native_types: bool | frozenset[str] = False
+    # score decisions: levels on each side of the chosen one that count towards `accepted`.
+    score_tolerance: int = 1
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -28,6 +30,7 @@ class Settings:
             engine=os.getenv("JEV_ENGINE", cls.engine),
             mcp_enabled=_flag("JEV_MCP_ENABLED"),
             native_types=_native_types(os.getenv("JEV_NATIVE_TYPES", "false")),
+            score_tolerance=int(os.getenv("JEV_SCORE_TOLERANCE", str(cls.score_tolerance))),
             min_selected_probability=float(
                 os.getenv("JEV_MIN_SELECTED_PROBABILITY", str(cls.min_selected_probability))
             ),

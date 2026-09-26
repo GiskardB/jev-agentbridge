@@ -1,7 +1,25 @@
 # Changelog
 
-## Unreleased
+## 0.7.0
 
+- Change: **score acceptance uses a window around the chosen level.** For `score` decisions,
+  `accepted` now compares the probability of the chosen level plus the levels within
+  `score_tolerance` steps of it (`score_window_probability`) with the threshold, instead of the
+  exact level alone. Default tolerance 1 (`JEV_SCORE_TOLERANCE`), per request with
+  `score_tolerance` (REST, MCP `jev_score` and batch items, both SDKs); `0` restores the 0.6
+  behaviour. Responses add `score_window_probability` and `score_tolerance`; `/v1/info` adds
+  `default_score_tolerance`. `selected_probability` is unchanged. Measured on 112 scale
+  questions with Kev-0.8B at threshold 0.7: 20.5% of the questions accepted with the exact
+  level, 92.9% with the ±1 window, every accepted answer within one level of the label
+  (`examples/eval/question_types/results/score-window-0.7.0`).
+- Add: the local run of 200 new questions (`examples/eval/question_types/datasets/local-20260926.jsonl`,
+  results in `results/local-20260926/`) produced with `LOCAL_RUN.md`. Pooled with the first 80
+  (280 questions): native types are still never better (Kev noul 83.3% both ways, score 67.9%
+  native vs 72.3%; Laya score 34.8% vs 50.0%, significant at p = 0.02), so emulation stays the
+  default. Kev-0.8B at threshold 0.70 answers 66% of yes/no questions at 95.5% accuracy; Laya
+  multilingual is not suitable as a yes/no gate (64.9%, 26 confident errors out of 200).
+- Add: `run_eval.py` (question types) records `score_window_probability` and reports coverage
+  and within-one-level accuracy for the window criterion.
 - Add: re-measured `examples/eval/model_routing` and `examples/eval/question_types` against the
   published `:kev` 0.6.2 image (pinned `jaredpalmer/kev-0.8b@9a45d25e...`), labelled
   `kev-0.6.2-*`. `question_types` matches the recorded `kev-0.8b` numbers exactly (85.4% noul,

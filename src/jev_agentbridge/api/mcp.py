@@ -71,6 +71,7 @@ class McpDecision(BaseModel):
     )
     yes_description: str | None = Field(default=None, description="noul only")
     no_description: str | None = Field(default=None, description="noul only")
+    score_tolerance: int | None = Field(default=None, ge=0, description="score only")
     min_selected_probability: float | None = Field(default=None, ge=0.0, le=1.0)
 
     @model_validator(mode="after")
@@ -88,6 +89,7 @@ def _decision(
     *,
     yes_description: str | None = None,
     no_description: str | None = None,
+    score_tolerance: int | None = None,
 ) -> Decision:
     if type_ == "noul":
         return Decision.noul(
@@ -101,6 +103,7 @@ def _decision(
         options=tuple(Option(id=o.id, description=o.description) for o in options or ()),
         min_selected_probability=threshold,
         type=type_,
+        score_tolerance=score_tolerance,
     )
 
 
@@ -117,6 +120,9 @@ def _result(result: DecisionResult) -> dict[str, Any]:
         out["score"] = result.score
     if result.noul is not None:
         out["noul"] = result.noul
+    if result.score_window_probability is not None:
+        out["score_window_probability"] = result.score_window_probability
+        out["score_tolerance"] = result.score_tolerance
     out["metadata"] = result.metadata
     return out
 
@@ -200,7 +206,8 @@ def create_mcp_server(get_service: Callable[[], DecisionService | None]) -> MCPS
         description=(
             "Place the state on an ordinal scale (urgency, severity, sentiment...) given 2-16 "
             "levels, lowest first, with a local JEV decision model. Returns the most likely "
-            "level as `decision`, `score` (expected level, 0 = first level) and `accepted`."
+            "level as `decision`, `score` (expected level, 0 = first level) and `accepted` "
+            "(the chosen level ± score_tolerance levels, default 1, is likely enough)."
         ),
         annotations=_READ_ONLY,
     )
@@ -209,10 +216,14 @@ def create_mcp_server(get_service: Callable[[], DecisionService | None]) -> MCPS
         question: str,
         levels: list[McpOption],
         min_selected_probability: float | None = None,
+        score_tolerance: int | None = None,
     ) -> dict[str, Any]:
         """Evaluate one score decision."""
 
-        return await decide(state, _decision("score", question, levels, min_selected_probability))
+        decision = _decision(
+            "score", question, levels, min_selected_probability, score_tolerance=score_tolerance
+        )
+        return await decide(state, decision)
 
     @mcp.tool(
         title="Several JEV decisions on one state",
@@ -240,6 +251,7 @@ def create_mcp_server(get_service: Callable[[], DecisionService | None]) -> MCPS
                 else min_selected_probability,
                 yes_description=d.yes_description,
                 no_description=d.no_description,
+                score_tolerance=d.score_tolerance,
             )
             for d in decisions
         ]
@@ -271,6 +283,7 @@ def create_mcp_server(get_service: Callable[[], DecisionService | None]) -> MCPS
                 "native_types": [t for t in QUESTION_TYPES if t in current.native_types()],
             },
             "supported_types": list(QUESTION_TYPES),
+            "default_score_tolerance": current.default_score_tolerance,
             "default_min_selected_probability": current.default_threshold,
             "min_options": MIN_OPTIONS,
             "max_options": MAX_OPTIONS,

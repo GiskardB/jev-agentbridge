@@ -156,14 +156,25 @@ What this shows:
 ## Question types: native vs emulated
 
 The engines that have native yes/no (`noul`) and scale (`score`) paths were measured against
-asking the same questions as a choice, on the 80-question
-[question-types suite](../examples/eval/question_types):
+asking the same questions as a choice, on the
+[question-types suites](../examples/eval/question_types) (280 questions: 168 noul, 112 score):
 
 | Engine | noul native / emulated | score exact, native / emulated |
 |---|---|---|
-| Kev-0.8B | 85.4% / 85.4% | 68.8% / 71.9% |
-| Laya multilingual | 81.2% / 79.2% | 40.6% / 62.5% |
-| Laya English | 79.2% / 83.3% | 43.8% / 46.9% |
+| Kev-0.8B | 83.3% / 83.3% | 67.9% / 72.3% |
+| Laya multilingual | 64.3% / 64.9% | 34.8% / 50.0% |
 
-Native was never better, and Laya's native score was clearly worse, so the Bridge asks noul and
-score as a choice by default (`JEV_NATIVE_TYPES=false`).
+Native was never better, and Laya's native score was significantly worse (p = 0.02), so the
+Bridge asks noul and score as a choice by default (`JEV_NATIVE_TYPES=false`).
+
+### Recommended thresholds (Kev-0.8B)
+
+| Type | Threshold | Answered by Kev | Accuracy on those |
+|---|---|---|---|
+| noul | 0.70 | 66% | 95.5% |
+| noul | 0.80 | 48% | 98.8% |
+| score (±1 window, default) | 0.70 | 92.9% | 100% within one level, 72% exact |
+| score (±1 window, default) | 0.80 | 83.9% | 100% within one level, 72% exact |
+
+For `choice`, use the model-routing results above. Laya multilingual is not recommended as a
+noul gate (64.9% accuracy, many confident errors).

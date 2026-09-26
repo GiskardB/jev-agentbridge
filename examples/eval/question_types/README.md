@@ -88,3 +88,38 @@ What it says:
 
 80 questions is a small suite: treat differences of a few points as noise and re-run on your
 own questions before changing the default.
+
+### Second run: 200 new questions (2026-09-26)
+
+[`datasets/local-20260926.jsonl`](datasets/local-20260926.jsonl): 120 noul and 80 score,
+Italian and English, 17 categories (policy, support, devops, code, finance, HR, legal, security,
+access...), 30% `hard` rows, written and committed before any run by a local agent following
+[LOCAL_RUN.md](LOCAL_RUN.md). Bridge 0.6.2, Kev pinned `9a45d25e`, Laya multilingual, CPU.
+Results and environment notes: [`results/local-20260926/`](results/local-20260926/).
+
+| Run | noul acc. | noul IT / EN | score exact | score ±1 |
+|---|---|---|---|---|
+| kev-emulated | 82.5% | 81.7% / 83.3% | 72.5% | 98.8% |
+| kev-native | 82.5% | 81.7% / 83.3% | 67.5% | 98.8% |
+| laya-emulated | 59.2% | 56.7% / 61.7% | 45.0% | 80.0% |
+| laya-native | 57.5% | 55.0% / 60.0% | 32.5% | 83.8% |
+
+Pooled over both suites (280 questions), with McNemar's exact test on the questions where the
+two paths disagree:
+
+| Engine, type | native | emulated | disagreements (native right / emulated right) | p |
+|---|---|---|---|---|
+| Kev noul (168) | 83.3% | 83.3% | 2 / 2 | 1.00 |
+| Kev score (112) | 67.9% | 72.3% | 2 / 7 | 0.18 |
+| Laya noul (168) | 64.3% | 64.9% | 17 / 18 | 1.00 |
+| Laya score (112) | 34.8% | 50.0% | 16 / 33 | 0.02 |
+
+- Native is never better; for Laya's score it is significantly worse. Emulation stays the default.
+- **Kev as a noul gate** (emulated, pooled): threshold 0.60 answers 81% at 90.4% accuracy,
+  0.70 answers 66% at 95.5%, 0.80 answers 48% at 98.8%. Weakest categories: HR 7/12,
+  access 8/12.
+- **Laya is not a noul gate** on realistic questions: 59% accuracy, "yes" predicted 81 times
+  out of 120, 26 wrong answers with p ≥ 0.8.
+- **Scales**: Kev picks the exact level 72% of the time but is within one level 99% of the
+  time, with low confidence on the exact level. That led to the ±1 acceptance window of 0.7.0:
+  see [`results/score-window-0.7.0/`](results/score-window-0.7.0/).

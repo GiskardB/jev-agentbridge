@@ -1,0 +1,56 @@
+{
+  "label": "kev-emulated",
+  "native_type": false,
+  "types": {
+    "score": {
+      "n": 112,
+      "accuracy": 0.7232,
+      "by_lang": {
+        "en": 0.7679,
+        "it": 0.6786
+      },
+      "coverage": {
+        "0.6": {
+          "coverage": 0.4107,
+          "accuracy": 0.8696
+        },
+        "0.7": {
+          "coverage": 0.2054,
+          "accuracy": 0.8261
+        },
+        "0.8": {
+          "coverage": 0.0804,
+          "accuracy": 1.0
+        },
+        "0.9": {
+          "coverage": 0.0446,
+          "accuracy": 1.0
+        }
+      },
+      "within_one_level": 0.9911,
+      "score_mae": 0.5008,
+      "window_coverage": {
+        "0.6": {
+          "coverage": 0.9911,
+          "accuracy": 0.7207,
+          "within_one_level": 0.991
+        },
+        "0.7": {
+          "coverage": 0.9286,
+          "accuracy": 0.7212,
+          "within_one_level": 1.0
+        },
+        "0.8": {
+          "coverage": 0.8393,
+          "accuracy": 0.7234,
+          "within_one_level": 1.0
+        },
+        "0.9": {
+          "coverage": 0.5714,
+          "accuracy": 0.7344,
+          "within_one_level": 1.0
+        }
+      }
+    }
+  }
+}

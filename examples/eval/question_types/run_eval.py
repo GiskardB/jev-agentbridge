@@ -68,6 +68,8 @@ def run(args: argparse.Namespace) -> None:
             "probability": result["selected_probability"],
             "noul": result.get("noul"),
             "score": result.get("score"),
+            "score_window_probability": result.get("score_window_probability"),
+            "accepted": result.get("accepted"),
             "native_type": result["metadata"].get("native_type"),
             "latency_ms": round((time.perf_counter() - started) * 1000, 1),
         }
@@ -128,6 +130,23 @@ def summarize(label: str, predictions: list[dict]) -> dict:
             stats["score_mae"] = round(
                 sum(abs(r["score"] - r["expected_level"]) for r in rows) / len(rows), 4
             )
+            # Bridges >= 0.7 accept a score on the chosen level ± tolerance (default 1).
+            windowed = [r for r in rows if r.get("score_window_probability") is not None]
+            if windowed:
+                stats["window_coverage"] = {}
+                for threshold in THRESHOLDS:
+                    kept = [r for r in windowed if r["score_window_probability"] >= threshold]
+                    stats["window_coverage"][str(threshold)] = {
+                        "coverage": round(len(kept) / len(windowed), 4),
+                        "accuracy": _accuracy(kept),
+                        "within_one_level": round(
+                            sum(abs(r["predicted_level"] - r["expected_level"]) <= 1 for r in kept)
+                            / len(kept),
+                            4,
+                        )
+                        if kept
+                        else None,
+                    }
         summary["types"][type_] = stats
     return summary
 
@@ -141,8 +160,9 @@ def report(args: argparse.Namespace) -> None:
         "# Question types: native vs emulated",
         "",
         "| Run | Native | noul acc. | noul IT | noul EN | noul cov. @0.8 (acc.) "
-        "| score exact | score ±1 | score MAE | score cov. @0.8 (acc.) |",
-        "|---|---|---|---|---|---|---|---|---|---|",
+        "| score exact | score ±1 | score MAE | score cov. @0.8 (acc.) "
+        "| score window cov. @0.8 (±1 acc.) |",
+        "|---|---|---|---|---|---|---|---|---|---|---|",
     ]
 
     def pct(value: float | None) -> str:
@@ -151,6 +171,7 @@ def report(args: argparse.Namespace) -> None:
     for s in summaries:
         noul, score = s["types"].get("noul", {}), s["types"].get("score", {})
         n08, s08 = noul.get("coverage", {}).get("0.8", {}), score.get("coverage", {}).get("0.8", {})
+        w08 = score.get("window_coverage", {}).get("0.8", {})
         by_lang = noul.get("by_lang", {})
         lines.append(
             f"| {s['label']} | {s['native_type']} | {pct(noul.get('accuracy'))} "
@@ -158,7 +179,8 @@ def report(args: argparse.Namespace) -> None:
             f"| {pct(n08.get('coverage'))} ({pct(n08.get('accuracy'))}) "
             f"| {pct(score.get('accuracy'))} | {pct(score.get('within_one_level'))} "
             f"| {score.get('score_mae', '—')} "
-            f"| {pct(s08.get('coverage'))} ({pct(s08.get('accuracy'))}) |"
+            f"| {pct(s08.get('coverage'))} ({pct(s08.get('accuracy'))}) "
+            f"| {pct(w08.get('coverage'))} ({pct(w08.get('within_one_level'))}) |"
         )
     (args.out_dir / "REPORT.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     print("\n".join(lines))

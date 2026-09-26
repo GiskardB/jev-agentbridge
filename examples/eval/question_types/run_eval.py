@@ -160,8 +160,9 @@ def report(args: argparse.Namespace) -> None:
         "# Question types: native vs emulated",
         "",
         "| Run | Native | noul acc. | noul IT | noul EN | noul cov. @0.8 (acc.) "
-        "| score exact | score ±1 | score MAE | score cov. @0.8 (acc.) |",
-        "|---|---|---|---|---|---|---|---|---|---|",
+        "| score exact | score ±1 | score MAE | score cov. @0.8 (acc.) "
+        "| score window cov. @0.8 (±1 acc.) |",
+        "|---|---|---|---|---|---|---|---|---|---|---|",
     ]
 
     def pct(value: float | None) -> str:
@@ -170,6 +171,7 @@ def report(args: argparse.Namespace) -> None:
     for s in summaries:
         noul, score = s["types"].get("noul", {}), s["types"].get("score", {})
         n08, s08 = noul.get("coverage", {}).get("0.8", {}), score.get("coverage", {}).get("0.8", {})
+        w08 = score.get("window_coverage", {}).get("0.8", {})
         by_lang = noul.get("by_lang", {})
         lines.append(
             f"| {s['label']} | {s['native_type']} | {pct(noul.get('accuracy'))} "
@@ -177,7 +179,8 @@ def report(args: argparse.Namespace) -> None:
             f"| {pct(n08.get('coverage'))} ({pct(n08.get('accuracy'))}) "
             f"| {pct(score.get('accuracy'))} | {pct(score.get('within_one_level'))} "
             f"| {score.get('score_mae', '—')} "
-            f"| {pct(s08.get('coverage'))} ({pct(s08.get('accuracy'))}) |"
+            f"| {pct(s08.get('coverage'))} ({pct(s08.get('accuracy'))}) "
+            f"| {pct(w08.get('coverage'))} ({pct(w08.get('within_one_level'))}) |"
         )
     (args.out_dir / "REPORT.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     print("\n".join(lines))

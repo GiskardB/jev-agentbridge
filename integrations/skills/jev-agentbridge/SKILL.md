@@ -119,7 +119,10 @@ know" in JEV's shape. Do the reasoning first.
 The response has a `decision` (the selected option: `yes`/`no` for `jev_yes_no`, the level for
 `jev_score`) and an `accepted` boolean. `jev_yes_no` also returns `noul`, the probability of
 yes; `jev_score` returns `score`, the expected level (0 = first level; 2.4 on a 0-3 scale
-means "between the third and fourth level, closer to the third").
+means "between the third and fourth level, closer to the third"). For `jev_score`, `accepted`
+means the chosen level or a neighbouring one is likely (`score_tolerance` 1 by default): treat
+the level as "about right, maybe one step off" and read `score` for the exact position. Pass
+`score_tolerance: 0` when only the exact level will do.
 
 - `accepted: true` - the selection cleared the configured confidence threshold; use it.
 - `accepted: false` - the selection did **not** clear the threshold. This does not mean "pick a

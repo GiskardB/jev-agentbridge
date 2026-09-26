@@ -38,8 +38,8 @@ One tool per JEV question type, so the agent picks the type by picking the tool:
 |---|---|---|
 | `jev_yes_no` | `state` (string, object or array), `question`, `yes_description` / `no_description` (optional), `min_selected_probability` (optional) | `decision.id` `yes` or `no`, `noul` (P(yes)), `probabilities`, `selected_probability`, `accepted`, `threshold`, `metadata` |
 | `jev_choose` | `state`, `question`, `options` (2–16 `{id, description}`), `min_selected_probability` (optional) | The chosen option, a probability per option id, `accepted`, `threshold`, `metadata` |
-| `jev_score` | `state`, `question`, `levels` (2–16 `{id, description}`, lowest first), `min_selected_probability` (optional) | The most likely level as `decision`, `score` (expected level, 0 = first), `probabilities`, `accepted`, `metadata` |
-| `jev_decide_batch` | `state`, `decisions` (list of `{type?, question, options?, yes_description?, no_description?, min_selected_probability?}`, types can be mixed), `min_selected_probability` (optional, batch default) | `{"decisions": [...]}`, one result per decision, in order |
+| `jev_score` | `state`, `question`, `levels` (2–16 `{id, description}`, lowest first), `min_selected_probability` (optional), `score_tolerance` (optional, default 1) | The most likely level as `decision`, `score` (expected level, 0 = first), `probabilities`, `score_window_probability`, `accepted` (chosen level ± tolerance likely enough), `metadata` |
+| `jev_decide_batch` | `state`, `decisions` (list of `{type?, question, options?, yes_description?, no_description?, score_tolerance?, min_selected_probability?}`, types can be mixed), `min_selected_probability` (optional, batch default) | `{"decisions": [...]}`, one result per decision, in order |
 | `jev_info` | none | Active engine and model, its native question types, API version, default threshold, option limits |
 
 The results are the ones `/v1/decide` returns (see [api.md](api.md#question-types)). 0.5.x
